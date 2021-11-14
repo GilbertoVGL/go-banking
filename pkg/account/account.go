@@ -5,9 +5,9 @@ type ListAccountsRequest struct {
 }
 
 type ListAccounts struct {
-	Name    string  `json:"name"`
-	Cpf     string  `json:"cpf"`
-	Balance float64 `json:"balance"`
+	Name    string `json:"name"`
+	Cpf     string `json:"cpf"`
+	Balance int64  `json:"balance"`
 }
 
 type ListAccountsReponse struct {
@@ -24,16 +24,16 @@ type BalanceResponce struct {
 }
 
 type NewAccountRequest struct {
-	Name    string  `json:"name"`
-	Cpf     string  `json:"cpf"`
-	Secret  string  `json:"secret"`
-	Balance float64 `json:"balance"`
+	Name    string `json:"name"`
+	Cpf     string `json:"cpf"`
+	Secret  string `json:"secret"`
+	Balance int64  `json:"balance"`
 }
 
 type AccountResponse struct {
-	Name    string  `json:"name"`
-	Cpf     string  `json:"cpf"`
-	Balance float64 `json:"balance"`
+	Name    string `json:"name"`
+	Cpf     string `json:"cpf"`
+	Balance int64  `json:"balance"`
 }
 
 type NewAccountError struct {
