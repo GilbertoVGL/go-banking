@@ -11,12 +11,12 @@ import (
 )
 
 type Repository interface {
-	ListAccounts() ([]ListAccountsReponse, error)
+	ListAccounts() (ListAccountsReponse, error)
 	AddAccount(NewAccountRequest) error
 }
 
 type Service interface {
-	List() ([]ListAccountsReponse, error)
+	List() (ListAccountsReponse, error)
 	NewAccount(NewAccountRequest) error
 	GetBalance(BalanceRequest)
 }
@@ -29,7 +29,7 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) List() ([]ListAccountsReponse, error) {
+func (s *service) List() (ListAccountsReponse, error) {
 	accounts, err := s.r.ListAccounts()
 
 	if err != nil {
