@@ -1,26 +1,25 @@
 package postgresdb
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 )
 
 type postgresDB struct {
-	db *gorm.DB
+	db *pgxpool.Pool
 }
 
-func new() (*gorm.DB, error) {
+func new() (*pgxpool.Pool, error) {
 	dsn := url.URL{
 		User:     url.UserPassword(os.Getenv("DB_USER"), os.Getenv("DB_PW")),
 		Scheme:   "postgres",
@@ -29,19 +28,7 @@ func new() (*gorm.DB, error) {
 		RawQuery: (&url.Values{"sslmode": []string{"disable"}}).Encode(),
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn.String()), &gorm.Config{})
-
-	if err != nil {
-		return nil, err
-	}
-
-	sqlDB, err := db.DB()
-
-	if err != nil {
-		return nil, err
-	}
-
-	idle, err := strconv.Atoi(os.Getenv("DB_MAX_IDLE_CONN"))
+	config, err := pgxpool.ParseConfig(dsn.String())
 
 	if err != nil {
 		return nil, err
@@ -53,13 +40,18 @@ func new() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	sqlDB.SetMaxIdleConns(idle)
-	sqlDB.SetMaxOpenConns(pool)
+	config.MaxConns = int32(pool)
+
+	db, err := pgxpool.ConnectConfig(context.Background(), config)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return db, nil
 }
 
-func (r *postgresDB) getDb() (*gorm.DB, error) {
+func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 	if r == nil || r.db == nil {
 		db, err := new()
 		if err != nil {
@@ -69,7 +61,13 @@ func (r *postgresDB) getDb() (*gorm.DB, error) {
 		r = &postgresDB{db}
 	}
 
-	return r.db, nil
+	conn, err := r.db.Acquire(context.Background())
+
+	if err != nil {
+		return conn, err
+	}
+
+	return conn, nil
 }
 
 func NewRepository() (*postgresDB, error) {
@@ -77,33 +75,26 @@ func NewRepository() (*postgresDB, error) {
 	if err != nil {
 		return &postgresDB{}, err
 	}
-	db.AutoMigrate(&Account{}, &Transfer{})
+
 	return &postgresDB{db}, nil
 }
 
-func (r *postgresDB) Close() error {
-	db, err := r.db.DB()
-	if err != nil {
-		return err
-	}
-	db.Close()
-	return nil
+func (r *postgresDB) Close() {
+	r.db.Close()
 }
 
 func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
-	db, err := r.getDb()
+	conn, err := r.getConn()
+	defer conn.Release()
 
 	if err != nil {
 		return false, err
 	}
 
 	var account Account
+	query := fmt.Sprintf("SELECT * FROM accounts WHERE cpf = %s AND secret = %s;", l.Cpf, l.Secret)
 
-	if err := db.Model(&account).Where("cpf = ?", l.Cpf).Where("secret = ?", l.Secret).First(&account).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, errors.New("wrong credentials")
-		}
-
+	if err := conn.QueryRow(context.Background(), query).Scan(&account); err != nil {
 		return false, err
 	}
 
@@ -113,20 +104,23 @@ func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
 func (r *postgresDB) ListAccounts() ([]account.ListAccountsReponse, error) {
 	var accountsResponse []account.ListAccountsReponse
 	var accounts []Account
-	var count int64
+	var count int
 
-	db, err := r.getDb()
+	conn, err := r.getConn()
 
 	if err != nil {
 		return accountsResponse, err
 	}
 
-	if err := db.Model(&Account{}).Select("name", "cpf", "balance").Find(&accounts).Limit(5); err != nil {
-		return accountsResponse, err.Error
+	query := fmt.Sprintf("select name, cpf, balance from accounts limit 5;")
+	if err := conn.QueryRow(context.Background(), query).Scan(&accounts); err != nil {
+		return nil, err
 	}
 
-	if err := db.Model(&Account{}).Count(&count); err != nil {
-		return accountsResponse, err.Error
+	countQuery := fmt.Sprintf("select count(*) from accounts;")
+
+	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
+		return nil, err
 	}
 
 	fmt.Printf("%+v\n", accounts)
@@ -135,7 +129,9 @@ func (r *postgresDB) ListAccounts() ([]account.ListAccountsReponse, error) {
 }
 
 func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
-	db, err := r.getDb()
+	conn, err := r.getConn()
+
+	fmt.Println(conn)
 
 	if err != nil {
 		return err
@@ -148,17 +144,6 @@ func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 	account.Balance = a.Balance
 	account.Secret = a.Secret
 	account.Active = true
-
-	stmt := db.Session(&gorm.Session{DryRun: true}).Create(&account).Statement
-	fmt.Println("QUERY: ", stmt.SQL.String())
-	fmt.Println("VARS: ", stmt.Vars)
-
-	if err := db.Create(&account).Error; err != nil {
-		if strings.Contains(err.Error(), "23505") {
-			return errors.New("user already registered")
-		}
-		return err
-	}
 
 	return nil
 }

@@ -8,17 +8,25 @@ services:
   #   network_mode: "host"
 
   db:
-    image: postgres
     restart: always
+    build:
+      context: .
+      dockerfile: postgres.Dockerfile
     environment:
       POSTGRES_PASSWORD: ${DB_PW}
       POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - 5432:5432
 
-  adminer:
-    image: adminer
-    restart: always
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "gvampre1991@gmail.com"
+      PGADMIN_DEFAULT_PASSWORD: "root"
     ports:
-      - 8080:8080
+      - 80:80
+    depends_on:
+      - db
+
 
