@@ -56,7 +56,7 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 		db, err := new()
 		if err != nil {
 			log.Print("warning: unable to initialize db:", err)
-			return nil, errors.New("unable to initialize db")
+			return nil, errors.New(fmt.Sprintf("unable to initialize db: %s", err.Error()))
 		}
 		r = &postgresDB{db}
 	}
@@ -70,7 +70,7 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 	return conn, nil
 }
 
-func NewRepository() (*postgresDB, error) {
+func New() (*postgresDB, error) {
 	db, err := new()
 	if err != nil {
 		return &postgresDB{}, err
@@ -85,14 +85,15 @@ func (r *postgresDB) Close() {
 
 func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
 	conn, err := r.getConn()
-	defer conn.Release()
 
 	if err != nil {
 		return false, err
 	}
 
+	defer conn.Release()
+
 	var account Account
-	query := fmt.Sprintf("SELECT * FROM accounts WHERE cpf = %s AND secret = %s;", l.Cpf, l.Secret)
+	query := fmt.Sprintf("SELECT secret, cpf FROM accounts WHERE cpf = %s AND secret = %s;", l.Cpf, l.Secret)
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account); err != nil {
 		return false, err
@@ -101,10 +102,10 @@ func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
 	return false, nil
 }
 
-func (r *postgresDB) ListAccounts() ([]account.ListAccountsReponse, error) {
-	var accountsResponse []account.ListAccountsReponse
-	var accounts []Account
-	var count int
+func (r *postgresDB) ListAccounts() (account.ListAccountsReponse, error) {
+	var accountsResponse account.ListAccountsReponse
+	var accounts []account.ListAccounts
+	var count int64
 
 	conn, err := r.getConn()
 
@@ -112,18 +113,33 @@ func (r *postgresDB) ListAccounts() ([]account.ListAccountsReponse, error) {
 		return accountsResponse, err
 	}
 
+	defer conn.Release()
+
 	query := fmt.Sprintf("select name, cpf, balance from accounts limit 5;")
-	if err := conn.QueryRow(context.Background(), query).Scan(&accounts); err != nil {
-		return nil, err
+	rows, err := conn.Query(context.Background(), query)
+
+	if err != nil {
+		return accountsResponse, err
+	}
+
+	for rows.Next() {
+		var account account.ListAccounts
+
+		if err := rows.Scan(&account.Name, &account.Cpf, &account.Balance); err != nil {
+			return accountsResponse, err
+		}
+
+		accounts = append(accounts, account)
 	}
 
 	countQuery := fmt.Sprintf("select count(*) from accounts;")
 
 	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
-		return nil, err
+		return accountsResponse, err
 	}
 
-	fmt.Printf("%+v\n", accounts)
+	accountsResponse.Data = accounts
+	accountsResponse.Total = count
 
 	return accountsResponse, nil
 }
@@ -131,19 +147,19 @@ func (r *postgresDB) ListAccounts() ([]account.ListAccountsReponse, error) {
 func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 	conn, err := r.getConn()
 
-	fmt.Println(conn)
-
 	if err != nil {
 		return err
 	}
 
-	var account Account
+	defer conn.Release()
 
-	account.Name = a.Name
-	account.Cpf = a.Cpf
-	account.Balance = a.Balance
-	account.Secret = a.Secret
-	account.Active = true
+	query := fmt.Sprintf("INSERT INTO accounts (name, cpf, balance, secret) VALUES ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
+	fmt.Println(query)
+	_, err = conn.Exec(context.Background(), query)
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
