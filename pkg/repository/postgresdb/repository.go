@@ -92,7 +92,7 @@ func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
 
 	defer conn.Release()
 
-	var account Account
+	var account account.AccountResponse
 	query := fmt.Sprintf("SELECT secret, cpf FROM accounts WHERE cpf = %s AND secret = %s;", l.Cpf, l.Secret)
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account); err != nil {
@@ -102,9 +102,9 @@ func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
 	return false, nil
 }
 
-func (r *postgresDB) ListAccounts() (account.ListAccountsReponse, error) {
+func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
 	var accountsResponse account.ListAccountsReponse
-	var accounts []account.ListAccounts
+	var accounts []account.ListAccount
 	var count int64
 
 	conn, err := r.getConn()
@@ -123,7 +123,7 @@ func (r *postgresDB) ListAccounts() (account.ListAccountsReponse, error) {
 	}
 
 	for rows.Next() {
-		var account account.ListAccounts
+		var account account.ListAccount
 
 		if err := rows.Scan(&account.Name, &account.Cpf, &account.Balance); err != nil {
 			return accountsResponse, err

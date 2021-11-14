@@ -1,10 +1,6 @@
 package account
 
-type ListAccountsRequest struct {
-	ID string `json:"id"`
-}
-
-type ListAccounts struct {
+type ListAccount struct {
 	Name    string `json:"name"`
 	Cpf     string `json:"cpf"`
 	Balance int64  `json:"balance"`
@@ -13,7 +9,7 @@ type ListAccounts struct {
 type ListAccountsReponse struct {
 	Total int64 `json:"total"`
 	Page  int64 `json:"page"`
-	Data  []ListAccounts
+	Data  []ListAccount
 }
 
 type BalanceRequest struct {
