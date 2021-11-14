@@ -95,7 +95,7 @@ func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		respondWithJSON(w, http.StatusCreated, newAccount)
+		respondWithJSON(w, http.StatusCreated, map[string]string{"msg": "account created"})
 	}
 }
 
