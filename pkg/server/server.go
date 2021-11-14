@@ -13,7 +13,7 @@ import (
 )
 
 func New(port int) (*http.Server, error) {
-	db, err := postgresdb.NewRepository()
+	db, err := postgresdb.New()
 	if err != nil {
 		log.Print("warning: unable to connect to database at startup: ", err)
 	}
