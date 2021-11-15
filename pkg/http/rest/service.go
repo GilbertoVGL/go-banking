@@ -2,7 +2,10 @@ package rest
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 
@@ -101,7 +104,35 @@ func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
 
 func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		listAccounts, err := s.List()
+		var invalid []string
+		limit, err := strconv.Atoi(r.FormValue("limit"))
+		if err != nil {
+			fmt.Println(err)
+			invalid = append(invalid, "limit")
+		}
+
+		page, err := strconv.Atoi(r.FormValue("pageSize"))
+		if err != nil {
+			invalid = append(invalid, "pageSize")
+		}
+
+		offset, err := strconv.Atoi(r.FormValue("offset"))
+		if err != nil {
+			invalid = append(invalid, "offset")
+		}
+
+		if len(invalid) > 0 {
+			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", ")))
+			return
+		}
+
+		query := account.ListAccountQuery{
+			Limit:    limit,
+			PageSize: page,
+			Offset:   offset,
+		}
+
+		listAccounts, err := s.List(query)
 
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, err.Error())
