@@ -16,7 +16,7 @@ type Repository interface {
 }
 
 type Service interface {
-	List() (ListAccountsReponse, error)
+	List(ListAccountQuery) (ListAccountsReponse, error)
 	NewAccount(NewAccountRequest) error
 	GetBalance(BalanceRequest)
 }
@@ -29,7 +29,7 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) List() (ListAccountsReponse, error) {
+func (s *service) List(q ListAccountQuery) (ListAccountsReponse, error) {
 	accounts, err := s.r.ListAccount()
 
 	if err != nil {
