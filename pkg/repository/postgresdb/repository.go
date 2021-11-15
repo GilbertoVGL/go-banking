@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 
+	pgx "github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
@@ -83,28 +84,33 @@ func (r *postgresDB) Close() {
 	r.db.Close()
 }
 
-func (r *postgresDB) Login(l login.LoginRequest) (bool, error) {
+func (r *postgresDB) Login(l login.LoginRequest) error {
+	var account login.Account
+
 	conn, err := r.getConn()
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	defer conn.Release()
 
-	var account account.AccountResponse
-	query := fmt.Sprintf("SELECT secret, cpf FROM accounts WHERE cpf = %s AND secret = %s;", l.Cpf, l.Secret)
+	query := fmt.Sprintf("SELECT secret, cpf FROM accounts WHERE cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
 
-	if err := conn.QueryRow(context.Background(), query).Scan(&account); err != nil {
-		return false, err
+	if err := conn.QueryRow(context.Background(), query).Scan(&account.Secret, &account.Cpf); err != nil {
+		if errors.Is(pgx.ErrNoRows, err) {
+			return errors.New("invalid password")
+		}
+
+		return err
 	}
 
-	return false, nil
+	return nil
 }
 
 func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
 	var accountsResponse account.ListAccountsReponse
-	var accounts []account.ListAccount
+	accounts := []account.ListAccount{}
 	var count int64
 
 	conn, err := r.getConn()
@@ -118,7 +124,7 @@ func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
 	query := fmt.Sprintf("select name, cpf, balance from accounts limit 5;")
 	rows, err := conn.Query(context.Background(), query)
 
-	if err != nil {
+	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
 		return accountsResponse, err
 	}
 
