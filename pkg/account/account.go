@@ -35,7 +35,8 @@ type BalanceRequest struct {
 	ID string `json:"id"`
 }
 
-type BalanceResponce struct {
+type BalanceResponse struct {
+	Balance int64 `json:"balance"`
 }
 
 type NewAccountRequest struct {
