@@ -35,6 +35,7 @@ func (s *service) List(q ListAccountQuery) (ListAccountsReponse, error) {
 	if err != nil {
 		return accounts, err
 	}
+
 	return accounts, err
 }
 
