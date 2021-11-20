@@ -73,14 +73,9 @@ func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newTransfer transfer.TransferRequest
 
-		if err := json.NewDecoder(r.Body).Decode(&newTransfer); err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
 		s.GetTransfers(newTransfer)
 
-		respondWithJSON(w, http.StatusCreated, newTransfer)
+		respondWithJSON(w, http.StatusOK, newTransfer)
 	}
 }
 
@@ -145,7 +140,7 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 
 func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-
+		respondWithJSON(w, http.StatusOK, account.BalanceResponse{})
 	}
 }
 
