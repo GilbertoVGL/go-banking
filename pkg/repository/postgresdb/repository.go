@@ -84,28 +84,28 @@ func (r *postgresDB) Close() {
 	r.db.Close()
 }
 
-func (r *postgresDB) Login(l login.LoginRequest) error {
+func (r *postgresDB) Login(l login.LoginRequest) (login.Account, error) {
 	var account login.Account
 
 	conn, err := r.getConn()
 
 	if err != nil {
-		return err
+		return account, err
 	}
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("SELECT secret, cpf FROM accounts WHERE cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
+	query := fmt.Sprintf("SELECT id, active FROM accounts WHERE cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
 
-	if err := conn.QueryRow(context.Background(), query).Scan(&account.Secret, &account.Cpf); err != nil {
+	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Active); err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
-			return errors.New("invalid password")
+			return account, errors.New("invalid cpf or password")
 		}
 
-		return err
+		return account, err
 	}
 
-	return nil
+	return account, nil
 }
 
 func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
