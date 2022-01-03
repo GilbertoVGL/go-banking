@@ -13,7 +13,7 @@ import (
 )
 
 type Repository interface {
-	Login(LoginRequest) error
+	Login(LoginRequest) (Account, error)
 }
 
 type Service interface {
@@ -36,14 +36,19 @@ func (s *service) LoginUser(login LoginRequest) (LoginReponse, error) {
 	}
 
 	login.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(login.Secret+os.Getenv("SALT"))))
+	account, err := s.r.Login(login)
 
-	if err := s.r.Login(login); err != nil {
+	if err != nil {
 		return loginResponse, err
+	}
+
+	if !account.Active {
+		return loginResponse, errors.New("this account is inactive")
 	}
 
 	claims := jwt.MapClaims{}
 	claims["authorized"] = true
-	claims["user_id"] = login.Cpf
+	claims["userId"] = account.Id
 	claims["exp"] = time.Now().Add(time.Minute * 15).Unix()
 
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
