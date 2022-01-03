@@ -3,7 +3,7 @@ package login
 import "time"
 
 type Account struct {
-	Id         string
+	Id         uint64
 	Name       string
 	Cpf        string
 	Balance    int64
