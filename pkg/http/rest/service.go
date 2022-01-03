@@ -10,13 +10,14 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
+	"github.com/GilbertoVGL/go-banking/pkg/http/rest/middleware"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
-	"github.com/GilbertoVGL/go-banking/pkg/middleware"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
 )
 
 func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Handler {
 	r := mux.NewRouter()
+	r.HandleFunc("/", healthCheck).Methods("GET")
 
 	transferRouter := r.PathPrefix("/transfers").Subrouter()
 	transferRouter.HandleFunc("", doTransfer(t)).Methods("POST")
@@ -32,6 +33,14 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 	r.HandleFunc("/login", doLogin(l)).Methods("POST")
 
 	return r
+}
+
+func healthCheck(w http.ResponseWriter, r *http.Request) {
+	type isOk struct {
+		Ok bool `json:"ok"`
+	}
+
+	respondWithJSON(w, http.StatusOK, isOk{true})
 }
 
 func doLogin(s login.Service) func(http.ResponseWriter, *http.Request) {
