@@ -1,6 +1,7 @@
 package transfer
 
 type TransferRequest struct {
-	Destination string `json:"destination"`
+	Origin      uint64
+	Destination uint64 `json:"destination"`
 	Amount      int64  `json:"amount"`
 }
