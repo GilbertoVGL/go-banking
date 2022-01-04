@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
+	"github.com/GilbertoVGL/go-banking/pkg/http/rest/middleware"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
 )
@@ -19,6 +21,7 @@ type mockRepository struct{}
 var mockListAccount func() (account.ListAccountsReponse, error)
 var mockAddAccount func(account.NewAccountRequest) error
 var mockLogin func(login.LoginRequest) error
+var mockGetAccountBalance func(account.UserId) (account.BalanceResponse, error)
 
 func (mr *mockRepository) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	return mockListAccount()
@@ -28,6 +31,9 @@ func (mr *mockRepository) AddAccount(a account.NewAccountRequest) error {
 }
 func (mr *mockRepository) GetAccountBySecretAndCPF(l login.LoginRequest) error {
 	return mockLogin(l)
+}
+func (mr *mockRepository) GetAccountBalance(a account.UserId) (account.BalanceResponse, error) {
+	return mockGetAccountBalance(a)
 }
 
 type mockService struct {
@@ -40,8 +46,8 @@ func (ms *mockService) List(a account.ListAccountQuery) (account.ListAccountsRep
 func (ms *mockService) NewAccount(a account.NewAccountRequest) error {
 	return ms.r.AddAccount(a)
 }
-func (ms *mockService) GetBalance(a account.BalanceRequest) {
-
+func (ms *mockService) GetBalance(a account.UserId) (account.BalanceResponse, error) {
+	return ms.r.GetAccountBalance(a)
 }
 func (ms *mockService) LoginUser(l login.LoginRequest) (login.LoginReponse, error) {
 	return login.LoginReponse{}, ms.r.GetAccountBySecretAndCPF(l)
@@ -169,7 +175,7 @@ func TestGetTransferIsOk(t *testing.T) {
 func TestListAccountsIsOk(t *testing.T) {
 	path := url.URL{
 		Path:     "/accounts",
-		RawQuery: (&url.Values{"limit": []string{"10"}, "pageSize": []string{"10"}, "offset": []string{"0"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"10"}, "offset": []string{"0"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -211,7 +217,7 @@ func TestListAccountsIsOk(t *testing.T) {
 func TestListAccountsInvalidQuery(t *testing.T) {
 	path := url.URL{
 		Path:     "/accounts",
-		RawQuery: (&url.Values{"limit": []string{"really"}, "pageSize": []string{"bad"}, "offset": []string{"params"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"bad"}, "offset": []string{"params"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -232,7 +238,7 @@ func TestListAccountsInvalidQuery(t *testing.T) {
 			status, http.StatusOK)
 	}
 
-	expected := strings.Trim(`{"error":"invalid query params: limit, pageSize, offset"}`, " \r\n")
+	expected := strings.Trim(`{"error":"invalid query params: pageSize, offset"}`, " \r\n")
 	body := strings.Trim(rr.Body.String(), " \r\n")
 
 	if body != expected {
@@ -244,7 +250,7 @@ func TestListAccountsInvalidQuery(t *testing.T) {
 func TestListAccountsServiceReturnError(t *testing.T) {
 	path := url.URL{
 		Path:     "/accounts",
-		RawQuery: (&url.Values{"limit": []string{"10"}, "pageSize": []string{"10"}, "offset": []string{"10"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"10"}, "offset": []string{"10"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -354,7 +360,7 @@ func TestNewAccountServiceError(t *testing.T) {
 
 func TestGetBalanceIsOk(t *testing.T) {
 	path := url.URL{
-		Path: "/accounts/123/balance",
+		Path: "/accounts/balance",
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -362,13 +368,19 @@ func TestGetBalanceIsOk(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	mockGetAccountBalance = func(account.UserId) (account.BalanceResponse, error) {
+		return account.BalanceResponse{Balance: 0}, nil
+	}
+
 	r := &mockRepository{}
 	s := mockService{r}
-
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(getBalance(&s))
+	ctx := req.Context()
+	ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
+	ro := req.Clone(ctx)
 
-	handler.ServeHTTP(rr, req)
+	handler.ServeHTTP(rr, ro)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
