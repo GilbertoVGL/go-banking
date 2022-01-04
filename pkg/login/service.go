@@ -46,12 +46,11 @@ func (s *service) LoginUser(login LoginRequest) (LoginReponse, error) {
 		return loginResponse, errors.New("this account is inactive")
 	}
 
-	claims := jwt.MapClaims{}
-	claims["authorized"] = true
-	claims["userId"] = account.Id
-	claims["exp"] = time.Now().Add(time.Minute * 15).Unix()
-
-	at := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"authorized": true,
+		"userId":     account.Id,
+		"exp":        time.Now().Add(time.Minute * 15).Unix(),
+	})
 	token, err := at.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	if err != nil {
