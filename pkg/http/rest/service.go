@@ -31,7 +31,8 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 
 	accountRouter := r.PathPrefix("/accounts").Subrouter()
 	accountRouter.HandleFunc("", listAccounts(a)).Methods("GET")
-	accountRouter.HandleFunc("/balance", getBalance(a)).Methods("GET")
+	accountRouter.HandleFunc("/balance", getSelfBalance(a)).Methods("GET")
+	accountRouter.HandleFunc("/{id}/balance", getBalance(a)).Methods("GET")
 	accountRouter.Use(middleware.Auth)
 
 	return r
@@ -155,6 +156,27 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 }
 
 func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		userId, err := strconv.Atoi(id)
+
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "invalid id format")
+			return
+		}
+
+		balance, err := s.GetBalance(uint64(userId))
+
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		respondWithJSON(w, http.StatusOK, balance)
+	}
+}
+
+func getSelfBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
 		balance, err := s.GetBalance(userId)
