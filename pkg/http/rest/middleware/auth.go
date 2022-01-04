@@ -16,8 +16,7 @@ type UserIdContextKey string
 
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		splitToken := strings.Split(authHeader, BEARER_SCHEMA)
+		splitToken := strings.Split(r.Header.Get("Authorization"), BEARER_SCHEMA)
 
 		if len(splitToken) != 2 {
 			respondWithError(w, http.StatusBadRequest, "invalid authentication token")
