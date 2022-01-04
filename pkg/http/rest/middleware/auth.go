@@ -40,8 +40,9 @@ func Auth(next http.Handler) http.Handler {
 		}
 
 		claims := token.Claims.(jwt.MapClaims)
+		userId := claims["userId"].(float64)
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, UserIdContextKey("userClaims"), claims["userId"])
+		ctx = context.WithValue(ctx, UserIdContextKey("userId"), uint64(userId))
 		ro := r.Clone(ctx)
 
 		next.ServeHTTP(w, ro)
