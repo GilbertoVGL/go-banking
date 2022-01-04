@@ -21,7 +21,7 @@ type mockRepository struct{}
 var mockListAccount func() (account.ListAccountsReponse, error)
 var mockAddAccount func(account.NewAccountRequest) error
 var mockLogin func(login.LoginRequest) error
-var mockGetAccountBalance func(account.UserId) (account.BalanceResponse, error)
+var mockGetAccountBalance func(uint64) (account.BalanceResponse, error)
 
 func (mr *mockRepository) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	return mockListAccount()
@@ -32,7 +32,7 @@ func (mr *mockRepository) AddAccount(a account.NewAccountRequest) error {
 func (mr *mockRepository) GetAccountBySecretAndCPF(l login.LoginRequest) error {
 	return mockLogin(l)
 }
-func (mr *mockRepository) GetAccountBalance(a account.UserId) (account.BalanceResponse, error) {
+func (mr *mockRepository) GetAccountBalance(a uint64) (account.BalanceResponse, error) {
 	return mockGetAccountBalance(a)
 }
 
@@ -46,7 +46,7 @@ func (ms *mockService) List(a account.ListAccountQuery) (account.ListAccountsRep
 func (ms *mockService) NewAccount(a account.NewAccountRequest) error {
 	return ms.r.AddAccount(a)
 }
-func (ms *mockService) GetBalance(a account.UserId) (account.BalanceResponse, error) {
+func (ms *mockService) GetBalance(a uint64) (account.BalanceResponse, error) {
 	return ms.r.GetAccountBalance(a)
 }
 func (ms *mockService) LoginUser(l login.LoginRequest) (login.LoginReponse, error) {
@@ -54,7 +54,8 @@ func (ms *mockService) LoginUser(l login.LoginRequest) (login.LoginReponse, erro
 }
 func (ms *mockService) GetTransfers(transfer.TransferRequest) {
 }
-func (ms *mockService) DoTransfer(transfer.TransferRequest) {
+func (ms *mockService) DoTransfer(transfer.TransferRequest) error {
+	return nil
 }
 
 func TestDoLoginIsOk(t *testing.T) {
@@ -368,7 +369,7 @@ func TestGetBalanceIsOk(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mockGetAccountBalance = func(account.UserId) (account.BalanceResponse, error) {
+	mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
 		return account.BalanceResponse{Balance: 0}, nil
 	}
 

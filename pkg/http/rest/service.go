@@ -68,13 +68,17 @@ func doLogin(s login.Service) func(http.ResponseWriter, *http.Request) {
 func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newTransfer transfer.TransferRequest
+		newTransfer.Origin = r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
 
 		if err := json.NewDecoder(r.Body).Decode(&newTransfer); err != nil {
 			respondWithError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 
-		s.DoTransfer(newTransfer)
+		if err := s.DoTransfer(newTransfer); err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 
 		respondWithJSON(w, http.StatusCreated, newTransfer)
 	}
@@ -153,7 +157,7 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
-		balance, err := s.GetBalance(account.UserId(userId))
+		balance, err := s.GetBalance(userId)
 
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, err.Error())
