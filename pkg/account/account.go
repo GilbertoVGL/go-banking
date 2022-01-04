@@ -2,8 +2,10 @@ package account
 
 import "time"
 
+type UserId uint64
+
 type Account struct {
-	Id         string
+	Id         uint64
 	Name       string
 	Cpf        string
 	Balance    int64
@@ -20,7 +22,7 @@ type ListAccountsReponse struct {
 }
 
 type ListAccount struct {
-	Id      int64  `json:"id"`
+	Id      uint64 `json:"id"`
 	Name    string `json:"name"`
 	Cpf     string `json:"cpf"`
 	Balance int64  `json:"balance"`
