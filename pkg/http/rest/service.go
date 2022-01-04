@@ -31,7 +31,7 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 
 	accountRouter := r.PathPrefix("/accounts").Subrouter()
 	accountRouter.HandleFunc("", listAccounts(a)).Methods("GET")
-	accountRouter.HandleFunc("/{id}/balance", getBalance(a)).Methods("GET")
+	accountRouter.HandleFunc("/balance", getBalance(a)).Methods("GET")
 	accountRouter.Use(middleware.Auth)
 
 	return r
@@ -152,7 +152,15 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 
 func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		respondWithJSON(w, http.StatusOK, account.BalanceResponse{})
+		userId := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
+		balance, err := s.GetBalance(account.UserId(userId))
+
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		respondWithJSON(w, http.StatusOK, balance)
 	}
 }
 

@@ -161,7 +161,6 @@ func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 	defer conn.Release()
 
 	query := fmt.Sprintf("INSERT INTO accounts (name, cpf, balance, secret) VALUES ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
-	fmt.Println(query)
 	_, err = conn.Exec(context.Background(), query)
 
 	if err != nil {
@@ -169,4 +168,22 @@ func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 	}
 
 	return nil
+}
+
+func (r *postgresDB) GetAccountBalance(a account.UserId) (account.BalanceResponse, error) {
+	var balance account.BalanceResponse
+	conn, err := r.getConn()
+
+	if err != nil {
+		return balance, err
+	}
+
+	defer conn.Release()
+
+	query := fmt.Sprintf("select balance from accounts where id = %d", a)
+	if err := conn.QueryRow(context.Background(), query).Scan(&balance.Balance); err != nil {
+		return balance, err
+	}
+
+	return balance, nil
 }
