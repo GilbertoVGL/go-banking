@@ -87,11 +87,44 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 
 func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var newTransfer transfer.TransferRequest
+		var invalid []string
+		id := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
+		query := transfer.ListTransferQuery{
+			PageSize: 15,
+			Offset:   0,
+		}
 
-		s.GetTransfers(newTransfer)
+		if r.FormValue("pageSize") != "" {
+			page, err := strconv.Atoi(r.FormValue("pageSize"))
+			if err != nil {
+				invalid = append(invalid, "pageSize")
+			} else {
+				query.PageSize = page
+			}
+		}
 
-		respondWithJSON(w, http.StatusOK, newTransfer)
+		if r.FormValue("offset") != "" {
+			offset, err := strconv.Atoi(r.FormValue("offset"))
+			if err != nil {
+				invalid = append(invalid, "offset")
+			} else {
+				query.Offset = offset - 1
+			}
+		}
+
+		if len(invalid) > 0 {
+			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", ")))
+			return
+		}
+
+		listTransfer, err := s.GetTransfers(id, query)
+
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		respondWithJSON(w, http.StatusOK, listTransfer)
 	}
 }
 

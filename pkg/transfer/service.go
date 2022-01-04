@@ -7,12 +7,13 @@ import (
 )
 
 type Service interface {
-	GetTransfers(TransferRequest)
+	GetTransfers(uint64, ListTransferQuery) (ListTransferReponse, error)
 	DoTransfer(TransferRequest) error
 }
 
 type Repository interface {
 	AddTransfer(TransferRequest) error
+	GetTransfers(uint64, ListTransferQuery) (ListTransferReponse, error)
 	GetAccountBalance(uint64) (int64, error)
 	GetAccountById(id uint64) (account.Account, error)
 }
@@ -25,8 +26,8 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) GetTransfers(TransferRequest) {
-
+func (s *service) GetTransfers(id uint64, l ListTransferQuery) (ListTransferReponse, error) {
+	return s.r.GetTransfers(id, l)
 }
 
 func (s *service) DoTransfer(transfer TransferRequest) error {

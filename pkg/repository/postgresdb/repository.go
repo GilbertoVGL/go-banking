@@ -212,22 +212,78 @@ func (r *postgresDB) GetAccountBalance(id uint64) (int64, error) {
 	return balance, nil
 }
 
-func (r *postgresDB) GetTransfers(id uint64) (account.BalanceResponse, error) {
-	var balance account.BalanceResponse
+func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+	var transferResponse transfer.ListTransferReponse
+	accounts := []transfer.ListTransfer{}
+	var count int64
 	conn, err := r.getConn()
 
 	if err != nil {
-		return balance, err
+		return transferResponse, err
 	}
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("select balance from accounts where id = %d", id)
-	if err := conn.QueryRow(context.Background(), query).Scan(&balance.Balance); err != nil {
-		return balance, err
+	query := fmt.Sprintf(`select 
+							tr.amount,
+							oa.name,
+							oa.cpf,
+							da.name,
+							da.cpf
+						from transfers as tr
+						inner join accounts as oa
+							on tr.account_origin_id = oa.id
+						inner join accounts as da
+							on tr.account_destination_id = da.id
+						where 
+							tr.account_origin_id = %d 
+							or 
+							tr.account_destination_id = %d
+						order by tr.id 
+						limit %d 
+						offset %d;`, id, id, params.PageSize, params.Offset)
+	rows, err := conn.Query(context.Background(), query)
+
+	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
+		return transferResponse, err
 	}
 
-	return balance, nil
+	for rows.Next() {
+		var transfer transfer.ListTransfer
+
+		if err := rows.Scan(&transfer.Amount, &transfer.OriginName, &transfer.OriginCpf, &transfer.DestinationName, &transfer.DestinationCpf); err != nil {
+
+			return transferResponse, err
+		}
+
+		accounts = append(accounts, transfer)
+	}
+
+	if err != nil {
+		return transferResponse, err
+	}
+
+	countQuery := fmt.Sprintf(`select 
+									count(*)
+								from transfers as tr
+								inner join accounts as oa
+									on tr.account_origin_id = oa.id
+								inner join accounts as da
+									on tr.account_destination_id = da.id
+								where 
+									tr.account_origin_id = %d 
+									or 
+									tr.account_destination_id = %d;`, id, id)
+
+	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
+		return transferResponse, err
+	}
+
+	transferResponse.Data = accounts
+	transferResponse.Total = count
+	transferResponse.Page = int64(params.Offset + 1)
+
+	return transferResponse, nil
 }
 
 func (r *postgresDB) AddTransfer(t transfer.TransferRequest) error {
