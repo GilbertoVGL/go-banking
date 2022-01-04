@@ -145,7 +145,16 @@ func (r *postgresDB) ListAccount(params account.ListAccountQuery) (account.ListA
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("select id, name, cpf, balance from accounts order by id limit %d offset %d;", params.PageSize, params.Offset)
+	query := fmt.Sprintf(`select 
+							id, 
+							name, 
+							cpf, 
+							balance 
+						from 
+							accounts 
+						order by id 
+						limit %d 
+						offset %d;`, params.PageSize, (params.PageSize * params.Offset))
 	rows, err := conn.Query(context.Background(), query)
 
 	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
@@ -241,7 +250,7 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 							tr.account_destination_id = %d
 						order by tr.id 
 						limit %d 
-						offset %d;`, id, id, params.PageSize, params.Offset)
+						offset %d;`, id, id, params.PageSize, (params.PageSize * params.Offset))
 	rows, err := conn.Query(context.Background(), query)
 
 	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
