@@ -13,7 +13,7 @@ import (
 )
 
 type Repository interface {
-	Login(LoginRequest) (Account, error)
+	GetAccountBySecretAndCPF(LoginRequest) (Account, error)
 }
 
 type Service interface {
@@ -36,7 +36,7 @@ func (s *service) LoginUser(login LoginRequest) (LoginReponse, error) {
 	}
 
 	login.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(login.Secret+os.Getenv("SALT"))))
-	account, err := s.r.Login(login)
+	account, err := s.r.GetAccountBySecretAndCPF(login)
 
 	if err != nil {
 		return loginResponse, err

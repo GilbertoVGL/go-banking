@@ -26,7 +26,7 @@ func (mr *mockRepository) ListAccount() (account.ListAccountsReponse, error) {
 func (mr *mockRepository) AddAccount(a account.NewAccountRequest) error {
 	return mockAddAccount(a)
 }
-func (mr *mockRepository) Login(l login.LoginRequest) error {
+func (mr *mockRepository) GetAccountBySecretAndCPF(l login.LoginRequest) error {
 	return mockLogin(l)
 }
 
@@ -44,7 +44,7 @@ func (ms *mockService) GetBalance(a account.BalanceRequest) {
 
 }
 func (ms *mockService) LoginUser(l login.LoginRequest) (login.LoginReponse, error) {
-	return login.LoginReponse{}, ms.r.Login(l)
+	return login.LoginReponse{}, ms.r.GetAccountBySecretAndCPF(l)
 }
 func (ms *mockService) GetTransfers(transfer.TransferRequest) {
 }

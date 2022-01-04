@@ -84,7 +84,7 @@ func (r *postgresDB) Close() {
 	r.db.Close()
 }
 
-func (r *postgresDB) Login(l login.LoginRequest) (login.Account, error) {
+func (r *postgresDB) GetAccountBySecretAndCPF(l login.LoginRequest) (login.Account, error) {
 	var account login.Account
 
 	conn, err := r.getConn()
