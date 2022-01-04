@@ -14,6 +14,7 @@ import (
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
+	"github.com/GilbertoVGL/go-banking/pkg/transfer"
 )
 
 type postgresDB struct {
@@ -82,6 +83,29 @@ func New() (*postgresDB, error) {
 
 func (r *postgresDB) Close() {
 	r.db.Close()
+}
+
+func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
+	var account account.Account
+
+	conn, err := r.getConn()
+
+	if err != nil {
+		return account, err
+	}
+
+	defer conn.Release()
+
+	query := fmt.Sprintf("SELECT id, name, cpf, balance, active FROM accounts WHERE id = '%d';", id)
+
+	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
+		if errors.Is(pgx.ErrNoRows, err) {
+			return account, errors.New("account does not exists")
+		}
+		return account, err
+	}
+
+	return account, nil
 }
 
 func (r *postgresDB) GetAccountBySecretAndCPF(l login.LoginRequest) (login.Account, error) {
@@ -170,7 +194,25 @@ func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 	return nil
 }
 
-func (r *postgresDB) GetAccountBalance(a account.UserId) (account.BalanceResponse, error) {
+func (r *postgresDB) GetAccountBalance(id uint64) (int64, error) {
+	var balance int64
+	conn, err := r.getConn()
+
+	if err != nil {
+		return balance, err
+	}
+
+	defer conn.Release()
+
+	query := fmt.Sprintf("select balance from accounts where id = %d", id)
+	if err := conn.QueryRow(context.Background(), query).Scan(&balance); err != nil {
+		return balance, err
+	}
+
+	return balance, nil
+}
+
+func (r *postgresDB) GetTransfers(id uint64) (account.BalanceResponse, error) {
 	var balance account.BalanceResponse
 	conn, err := r.getConn()
 
@@ -180,10 +222,52 @@ func (r *postgresDB) GetAccountBalance(a account.UserId) (account.BalanceRespons
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("select balance from accounts where id = %d", a)
+	query := fmt.Sprintf("select balance from accounts where id = %d", id)
 	if err := conn.QueryRow(context.Background(), query).Scan(&balance.Balance); err != nil {
 		return balance, err
 	}
 
 	return balance, nil
+}
+
+func (r *postgresDB) AddTransfer(t transfer.TransferRequest) error {
+	conn, err := r.getConn()
+
+	if err != nil {
+		return err
+	}
+
+	defer conn.Release()
+
+	tx, err := conn.Begin(context.Background())
+
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(context.Background())
+
+	insertTransferQuery := fmt.Sprintf("insert into transfers (account_origin_id, account_destination_id, amount) values ('%d', '%d', %d)", t.Origin, t.Destination, t.Amount)
+	originBalanceQuery := fmt.Sprintf("update accounts set balance = balance - %d where id = %d", t.Amount, t.Origin)
+	destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", t.Amount, t.Destination)
+
+	if _, err = tx.Exec(context.Background(), insertTransferQuery); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(context.Background(), originBalanceQuery); err != nil {
+		return err
+	}
+
+	if _, err = tx.Exec(context.Background(), destinationBalanceQuery); err != nil {
+		return err
+	}
+
+	err = tx.Commit(context.Background())
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

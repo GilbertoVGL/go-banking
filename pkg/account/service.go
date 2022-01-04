@@ -13,13 +13,13 @@ import (
 type Repository interface {
 	ListAccount(ListAccountQuery) (ListAccountsReponse, error)
 	AddAccount(NewAccountRequest) error
-	GetAccountBalance(UserId) (BalanceResponse, error)
+	GetAccountBalance(uint64) (int64, error)
 }
 
 type Service interface {
 	List(ListAccountQuery) (ListAccountsReponse, error)
 	NewAccount(NewAccountRequest) error
-	GetBalance(UserId) (BalanceResponse, error)
+	GetBalance(uint64) (BalanceResponse, error)
 }
 
 type service struct {
@@ -55,14 +55,16 @@ func (s *service) NewAccount(newAccount NewAccountRequest) error {
 	return nil
 }
 
-func (s *service) GetBalance(a UserId) (BalanceResponse, error) {
-	balance, err := s.r.GetAccountBalance(a)
+func (s *service) GetBalance(userId uint64) (BalanceResponse, error) {
+	var balanceResponse BalanceResponse
+	balance, err := s.r.GetAccountBalance(userId)
+	balanceResponse.Balance = balance
 
 	if err != nil {
-		return balance, err
+		return balanceResponse, err
 	}
 
-	return balance, nil
+	return balanceResponse, nil
 }
 
 func validateValues(a NewAccountRequest) error {
