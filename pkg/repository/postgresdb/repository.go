@@ -96,7 +96,7 @@ func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("SELECT id, name, cpf, balance, active FROM accounts WHERE id = '%d';", id)
+	query := fmt.Sprintf("select id, name, cpf, balance, active from accounts where id = '%d';", id)
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
@@ -119,7 +119,7 @@ func (r *postgresDB) GetAccountBySecretAndCPF(l login.LoginRequest) (login.Accou
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("SELECT id, active FROM accounts WHERE cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
+	query := fmt.Sprintf("select id, active from accounts where cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Active); err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
@@ -193,7 +193,7 @@ func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("INSERT INTO accounts (name, cpf, balance, secret) VALUES ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
+	query := fmt.Sprintf("insert into accounts (name, cpf, balance, secret) values ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
 	_, err = conn.Exec(context.Background(), query)
 
 	if err != nil {
