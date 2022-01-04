@@ -11,7 +11,7 @@ import (
 )
 
 type Repository interface {
-	ListAccount() (ListAccountsReponse, error)
+	ListAccount(ListAccountQuery) (ListAccountsReponse, error)
 	AddAccount(NewAccountRequest) error
 }
 
@@ -30,7 +30,7 @@ func New(r Repository) *service {
 }
 
 func (s *service) List(q ListAccountQuery) (ListAccountsReponse, error) {
-	accounts, err := s.r.ListAccount()
+	accounts, err := s.r.ListAccount(q)
 
 	if err != nil {
 		return accounts, err

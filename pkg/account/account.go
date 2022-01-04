@@ -20,13 +20,13 @@ type ListAccountsReponse struct {
 }
 
 type ListAccount struct {
+	Id      int64  `json:"id"`
 	Name    string `json:"name"`
 	Cpf     string `json:"cpf"`
 	Balance int64  `json:"balance"`
 }
 
 type ListAccountQuery struct {
-	Limit    int
 	PageSize int
 	Offset   int
 }

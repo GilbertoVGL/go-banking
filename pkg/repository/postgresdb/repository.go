@@ -108,7 +108,7 @@ func (r *postgresDB) GetAccountBySecretAndCPF(l login.LoginRequest) (login.Accou
 	return account, nil
 }
 
-func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
+func (r *postgresDB) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	var accountsResponse account.ListAccountsReponse
 	accounts := []account.ListAccount{}
 	var count int64
@@ -121,7 +121,7 @@ func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
 
 	defer conn.Release()
 
-	query := fmt.Sprintf("select name, cpf, balance from accounts limit 5;")
+	query := fmt.Sprintf("select id, name, cpf, balance from accounts order by id limit %d offset %d;", params.PageSize, params.Offset)
 	rows, err := conn.Query(context.Background(), query)
 
 	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
@@ -131,7 +131,7 @@ func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
 	for rows.Next() {
 		var account account.ListAccount
 
-		if err := rows.Scan(&account.Name, &account.Cpf, &account.Balance); err != nil {
+		if err := rows.Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance); err != nil {
 			return accountsResponse, err
 		}
 
@@ -146,6 +146,7 @@ func (r *postgresDB) ListAccount() (account.ListAccountsReponse, error) {
 
 	accountsResponse.Data = accounts
 	accountsResponse.Total = count
+	accountsResponse.Page = int64(params.Offset + 1)
 
 	return accountsResponse, nil
 }

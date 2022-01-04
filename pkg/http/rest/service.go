@@ -17,20 +17,22 @@ import (
 
 func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Handler {
 	r := mux.NewRouter()
-	r.HandleFunc("/", healthCheck).Methods("GET")
 
+	// Open routes \/
+	r.HandleFunc("/", healthCheck).Methods("GET")
+	r.HandleFunc("/login", doLogin(l)).Methods("POST")
+	r.HandleFunc("/accounts", newAccount(a)).Methods("POST")
+
+	// Needs auth \/
 	transferRouter := r.PathPrefix("/transfers").Subrouter()
 	transferRouter.HandleFunc("", doTransfer(t)).Methods("POST")
 	transferRouter.HandleFunc("", getTransfer(t)).Methods("GET")
 	transferRouter.Use(middleware.Auth)
 
 	accountRouter := r.PathPrefix("/accounts").Subrouter()
-	accountRouter.HandleFunc("", newAccount(a)).Methods("POST")
 	accountRouter.HandleFunc("", listAccounts(a)).Methods("GET")
 	accountRouter.HandleFunc("/{id}/balance", getBalance(a)).Methods("GET")
 	accountRouter.Use(middleware.Auth)
-
-	r.HandleFunc("/login", doLogin(l)).Methods("POST")
 
 	return r
 }
@@ -109,31 +111,32 @@ func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
 func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var invalid []string
-		limit, err := strconv.Atoi(r.FormValue("limit"))
-		if err != nil {
-			fmt.Println(err)
-			invalid = append(invalid, "limit")
+		query := account.ListAccountQuery{
+			PageSize: 15,
+			Offset:   0,
 		}
 
-		page, err := strconv.Atoi(r.FormValue("pageSize"))
-		if err != nil {
-			invalid = append(invalid, "pageSize")
+		if r.FormValue("pageSize") != "" {
+			page, err := strconv.Atoi(r.FormValue("pageSize"))
+			if err != nil {
+				invalid = append(invalid, "pageSize")
+			} else {
+				query.PageSize = page
+			}
 		}
 
-		offset, err := strconv.Atoi(r.FormValue("offset"))
-		if err != nil {
-			invalid = append(invalid, "offset")
+		if r.FormValue("offset") != "" {
+			offset, err := strconv.Atoi(r.FormValue("offset"))
+			if err != nil {
+				invalid = append(invalid, "offset")
+			} else {
+				query.Offset = offset - 1
+			}
 		}
 
 		if len(invalid) > 0 {
 			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", ")))
 			return
-		}
-
-		query := account.ListAccountQuery{
-			Limit:    limit,
-			PageSize: page,
-			Offset:   offset,
 		}
 
 		listAccounts, err := s.List(query)

@@ -20,7 +20,7 @@ var mockListAccount func() (account.ListAccountsReponse, error)
 var mockAddAccount func(account.NewAccountRequest) error
 var mockLogin func(login.LoginRequest) error
 
-func (mr *mockRepository) ListAccount() (account.ListAccountsReponse, error) {
+func (mr *mockRepository) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	return mockListAccount()
 }
 func (mr *mockRepository) AddAccount(a account.NewAccountRequest) error {
@@ -35,7 +35,7 @@ type mockService struct {
 }
 
 func (ms *mockService) List(a account.ListAccountQuery) (account.ListAccountsReponse, error) {
-	return ms.r.ListAccount()
+	return ms.r.ListAccount(a)
 }
 func (ms *mockService) NewAccount(a account.NewAccountRequest) error {
 	return ms.r.AddAccount(a)
