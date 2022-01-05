@@ -42,7 +42,7 @@ func (s *service) List(q ListAccountQuery) (ListAccountsReponse, error) {
 
 func (s *service) NewAccount(newAccount NewAccountRequest) error {
 
-	if err := validateValues(newAccount); err != nil {
+	if err := validateAccountValues(newAccount); err != nil {
 		return err
 	}
 
@@ -67,7 +67,7 @@ func (s *service) GetBalance(userId uint64) (BalanceResponse, error) {
 	return balanceResponse, nil
 }
 
-func validateValues(a NewAccountRequest) error {
+func validateAccountValues(a NewAccountRequest) error {
 	var invalid []string
 
 	if a.Secret == "" {
