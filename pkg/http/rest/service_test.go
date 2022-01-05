@@ -177,7 +177,7 @@ func TestDoTransferIsOk(t *testing.T) {
 func TestGetTransferIsOk(t *testing.T) {
 	path := url.URL{
 		Path:     "/transfers",
-		RawQuery: (&url.Values{"pageSize": []string{"10"}, "offset": []string{"0"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -214,7 +214,7 @@ func TestGetTransferIsOk(t *testing.T) {
 func TestListAccountsIsOk(t *testing.T) {
 	path := url.URL{
 		Path:     "/accounts",
-		RawQuery: (&url.Values{"pageSize": []string{"10"}, "offset": []string{"0"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -256,7 +256,7 @@ func TestListAccountsIsOk(t *testing.T) {
 func TestListAccountsInvalidQuery(t *testing.T) {
 	path := url.URL{
 		Path:     "/accounts",
-		RawQuery: (&url.Values{"pageSize": []string{"bad"}, "offset": []string{"params"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"bad"}, "page": []string{"params"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
@@ -277,7 +277,7 @@ func TestListAccountsInvalidQuery(t *testing.T) {
 			status, http.StatusOK)
 	}
 
-	expected := strings.Trim(`{"error":"invalid query params: pageSize, offset"}`, " \r\n")
+	expected := strings.Trim(`{"error":"invalid query params: pageSize, page"}`, " \r\n")
 	body := strings.Trim(rr.Body.String(), " \r\n")
 
 	if body != expected {
@@ -289,7 +289,7 @@ func TestListAccountsInvalidQuery(t *testing.T) {
 func TestListAccountsServiceReturnError(t *testing.T) {
 	path := url.URL{
 		Path:     "/accounts",
-		RawQuery: (&url.Values{"pageSize": []string{"10"}, "offset": []string{"10"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"10"}}).Encode(),
 	}
 
 	req, err := http.NewRequest(http.MethodGet, path.String(), nil)

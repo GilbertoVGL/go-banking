@@ -91,7 +91,7 @@ func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		id := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
 		query := transfer.ListTransferQuery{
 			PageSize: 15,
-			Offset:   0,
+			Page:     0,
 		}
 
 		if r.FormValue("pageSize") != "" {
@@ -103,12 +103,12 @@ func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 			}
 		}
 
-		if r.FormValue("offset") != "" {
-			offset, err := strconv.Atoi(r.FormValue("offset"))
-			if err != nil || offset < 1 {
-				invalid = append(invalid, "offset")
+		if r.FormValue("page") != "" {
+			page, err := strconv.Atoi(r.FormValue("page"))
+			if err != nil || page < 1 {
+				invalid = append(invalid, "page")
 			} else {
-				query.Offset = offset - 1
+				query.Page = page - 1
 			}
 		}
 
@@ -151,7 +151,7 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 		var invalid []string
 		query := account.ListAccountQuery{
 			PageSize: 15,
-			Offset:   0,
+			Page:     0,
 		}
 
 		if r.FormValue("pageSize") != "" {
@@ -163,12 +163,12 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 			}
 		}
 
-		if r.FormValue("offset") != "" {
-			offset, err := strconv.Atoi(r.FormValue("offset"))
-			if err != nil || offset < 1 {
-				invalid = append(invalid, "offset")
+		if r.FormValue("page") != "" {
+			page, err := strconv.Atoi(r.FormValue("page"))
+			if err != nil || page < 1 {
+				invalid = append(invalid, "page")
 			} else {
-				query.Offset = offset - 1
+				query.Page = page - 1
 			}
 		}
 

@@ -10,7 +10,7 @@ type TransferRequest struct {
 
 type ListTransferQuery struct {
 	PageSize int
-	Offset   int
+	Page     int
 }
 
 type ListTransferReponse struct {

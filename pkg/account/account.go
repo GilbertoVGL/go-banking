@@ -30,7 +30,7 @@ type ListAccount struct {
 
 type ListAccountQuery struct {
 	PageSize int
-	Offset   int
+	Page     int
 }
 
 type BalanceRequest struct {
