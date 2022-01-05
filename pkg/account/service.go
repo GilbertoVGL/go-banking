@@ -79,9 +79,12 @@ func validateValues(a NewAccountRequest) error {
 	if a.Name == "" {
 		invalid = append(invalid, "name")
 	}
+	if a.Balance < 0 {
+		invalid = append(invalid, "balance")
+	}
 
 	if len(invalid) > 0 {
-		return errors.New(fmt.Sprintf("missing values: %s", strings.Join(invalid, ", ")))
+		return errors.New(fmt.Sprintf("invalid values: %s", strings.Join(invalid, ", ")))
 	}
 
 	if err := validators.ValidateCPF(a.Cpf); err != nil {
