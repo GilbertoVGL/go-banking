@@ -235,6 +235,7 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 
 	query := fmt.Sprintf(`select 
 							tr.amount,
+							tr.created_at,
 							oa.name,
 							oa.cpf,
 							da.name,
@@ -260,7 +261,7 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 	for rows.Next() {
 		var transfer transfer.ListTransfer
 
-		if err := rows.Scan(&transfer.Amount, &transfer.OriginName, &transfer.OriginCpf, &transfer.DestinationName, &transfer.DestinationCpf); err != nil {
+		if err := rows.Scan(&transfer.Amount, &transfer.CreatedAt, &transfer.OriginName, &transfer.OriginCpf, &transfer.DestinationName, &transfer.DestinationCpf); err != nil {
 
 			return transferResponse, err
 		}

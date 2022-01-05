@@ -1,5 +1,7 @@
 package transfer
 
+import "time"
+
 type TransferRequest struct {
 	Origin      uint64
 	Destination uint64 `json:"destination"`
@@ -18,9 +20,10 @@ type ListTransferReponse struct {
 }
 
 type ListTransfer struct {
-	Amount          uint64 `json:"amount"`
-	DestinationName string `json:"destinationName"`
-	DestinationCpf  string `json:"destinationCpf"`
-	OriginName      string `json:"originName"`
-	OriginCpf       string `json:"originCpf"`
+	Amount          uint64    `json:"amount"`
+	CreatedAt       time.Time `json:"transferDate"`
+	DestinationName string    `json:"destinationName"`
+	DestinationCpf  string    `json:"destinationCpf"`
+	OriginName      string    `json:"originName"`
+	OriginCpf       string    `json:"originCpf"`
 }
