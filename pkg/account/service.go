@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 	"github.com/GilbertoVGL/go-banking/pkg/validators"
 )
 
@@ -84,7 +84,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return errors.New(fmt.Sprintf("invalid values: %s", strings.Join(invalid, ", ")))
+		return &apperrors.ArgumentError{Arguments: invalid, Err: errors.New("invalid values")}
 	}
 
 	if err := validators.ValidateCPF(a.Cpf); err != nil {
@@ -96,11 +96,11 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if a.Balance < 0 {
-		invalid = append(invalid, "invalid balance value")
+		invalid = append(invalid, "invalid balance")
 	}
 
 	if len(invalid) > 0 {
-		return errors.New(fmt.Sprintf("invalid input(s): %s", strings.Join(invalid, " and ")))
+		return &apperrors.ArgumentError{Arguments: invalid, Err: errors.New("invalid values")}
 	}
 
 	return nil
