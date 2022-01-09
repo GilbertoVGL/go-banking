@@ -314,9 +314,9 @@ func (r *postgresDB) AddTransfer(t transfer.TransferRequest) error {
 
 	defer tx.Rollback(context.Background())
 
-	insertTransferQuery := fmt.Sprintf("insert into transfers (account_origin_id, account_destination_id, amount) values ('%d', '%d', %d)", t.Origin, t.Destination, t.Amount)
-	originBalanceQuery := fmt.Sprintf("update accounts set balance = balance - %d where id = %d", t.Amount, t.Origin)
-	destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", t.Amount, t.Destination)
+	insertTransferQuery := fmt.Sprintf("insert into transfers (account_origin_id, account_destination_id, amount) values ('%d', '%d', %d)", t.Origin, *t.Destination, *t.Amount)
+	originBalanceQuery := fmt.Sprintf("update accounts set balance = balance - %d where id = %d", *t.Amount, t.Origin)
+	destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", *t.Amount, *t.Destination)
 
 	if _, err = tx.Exec(context.Background(), insertTransferQuery); err != nil {
 		return err
