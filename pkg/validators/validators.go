@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 )
 
 var CPFRegex = regexp.MustCompile(`^(\d{3}.\d{3}.\d{3}-\d{2})$`)
@@ -26,7 +28,7 @@ func getVerifyingDigit(starts int, uniqueDigits string) int {
 
 func ValidateCPF(cpf string) error {
 	if !CPFRegex.MatchString(cpf) {
-		return errors.New("invalid CPF format or value")
+		return &apperrors.ArgumentError{Context: []string{"invalid CPF format or value"}, Err: "invalid argument"}
 	}
 
 	cpf = strings.ReplaceAll(cpf, ".", "")

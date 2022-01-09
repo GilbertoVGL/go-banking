@@ -1,8 +1,6 @@
 package transfer
 
 import (
-	"errors"
-
 	"github.com/GilbertoVGL/go-banking/pkg/account"
 	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 )
@@ -43,12 +41,12 @@ func (s *service) DoTransfer(t TransferRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("missing values")}
+		return &apperrors.ArgumentError{Context: invalid, Err: "missing values"}
 	}
 
 	if *t.Amount < 0 {
 		invalid = append(invalid, "amount")
-		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
+		return &apperrors.ArgumentError{Context: invalid, Err: "invalid values"}
 	}
 
 	originBalance, err := s.r.GetAccountBalance(t.Origin)
@@ -58,12 +56,12 @@ func (s *service) DoTransfer(t TransferRequest) error {
 	}
 
 	if originBalance < *t.Amount {
-		return &apperrors.TransferRequestError{Context: "not enough funds", Err: errors.New("transfer error")}
+		return &apperrors.TransferRequestError{Context: "not enough funds", Err: "transfer error"}
 	}
 
 	if _, err := s.r.GetAccountById(*t.Destination); err != nil {
 		if _, ok := err.(*apperrors.AccountNotFoundError); ok {
-			return &apperrors.TransferRequestError{Context: "destination account not found", Err: errors.New(err.Error() + ": transfer error")}
+			return &apperrors.TransferRequestError{Context: "destination account not found", Err: (err.Error() + ": transfer error")}
 		}
 
 		return err

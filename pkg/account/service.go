@@ -2,7 +2,6 @@ package account
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"os"
 
@@ -84,7 +83,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
+		return &apperrors.ArgumentError{Context: invalid, Err: "invalid values"}
 	}
 
 	if err := validators.ValidateCPF(a.Cpf); err != nil {
@@ -100,7 +99,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
+		return &apperrors.ArgumentError{Context: invalid, Err: "invalid values"}
 	}
 
 	return nil
