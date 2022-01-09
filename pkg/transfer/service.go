@@ -43,11 +43,15 @@ func (s *service) DoTransfer(transfer TransferRequest) error {
 	}
 
 	if originBalance < transfer.Amount {
-		return errors.New("insuficient funds")
+		return &apperrors.TransferRequestError{Context: "origin account dont have enough funds", Err: errors.New("transfer error")}
 	}
 
 	if _, err := s.r.GetAccountById(transfer.Destination); err != nil {
-		return errors.New("destination " + err.Error())
+		if _, ok := err.(*apperrors.AccountNotFoundError); ok {
+			return &apperrors.TransferRequestError{Context: err.Error(), Err: errors.New("transfer error")}
+		}
+
+		return err
 	}
 
 	if err := s.r.AddTransfer(transfer); err != nil {
