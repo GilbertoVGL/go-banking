@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
 )
@@ -100,9 +101,9 @@ func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
-			return account, errors.New("account does not exists")
+			return account, &apperrors.AccountNotFoundError{Context: "account not found", Err: errors.New("database error")}
 		}
-		return account, err
+		return account, &apperrors.DatabaseError{Context: err.Error(), Err: errors.New("database error")}
 	}
 
 	return account, nil
