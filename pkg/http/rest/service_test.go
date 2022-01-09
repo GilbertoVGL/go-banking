@@ -145,9 +145,11 @@ func TestDoTransferIsOk(t *testing.T) {
 	path := url.URL{
 		Path: "/transfers",
 	}
+	var d uint64 = 1
+	var a int64 = 2
 	q := transfer.TransferRequest{
-		Destination: 1,
-		Amount:      2,
+		Destination: &d,
+		Amount:      &a,
 	}
 	jsonPayload, _ := json.Marshal(q)
 	payload := bytes.NewBuffer(jsonPayload)
