@@ -4,8 +4,8 @@ import "time"
 
 type TransferRequest struct {
 	Origin      uint64
-	Destination uint64 `json:"destination"`
-	Amount      int64  `json:"amount"`
+	Destination *uint64 `json:"destination"`
+	Amount      *int64  `json:"amount"`
 }
 
 type ListTransferQuery struct {
