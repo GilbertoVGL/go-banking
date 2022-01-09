@@ -78,7 +78,7 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if err := s.DoTransfer(newTransfer); err != nil {
-			if _, ok := err.(*apperrors.ArgumentError); !ok {
+			if _, ok := err.(*apperrors.ArgumentError); ok {
 				respondWithError(w, http.StatusBadRequest, err.Error())
 				return
 			}
