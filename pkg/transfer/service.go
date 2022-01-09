@@ -33,15 +33,19 @@ func (s *service) GetTransfers(id uint64, l ListTransferQuery) (ListTransferRepo
 
 func (s *service) DoTransfer(t TransferRequest) error {
 	var invalid []string
+
 	if t.Amount == nil {
 		invalid = append(invalid, "amount")
 	}
+
 	if t.Destination == nil {
 		invalid = append(invalid, "destination")
 	}
+
 	if len(invalid) > 0 {
 		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("missing values")}
 	}
+
 	if *t.Amount < 0 {
 		invalid = append(invalid, "amount")
 		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
