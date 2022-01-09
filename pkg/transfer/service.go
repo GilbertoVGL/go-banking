@@ -31,30 +31,37 @@ func (s *service) GetTransfers(id uint64, l ListTransferQuery) (ListTransferRepo
 	return s.r.GetTransfers(id, l)
 }
 
-func (s *service) DoTransfer(transfer TransferRequest) error {
-	if transfer.Amount <= 0 {
-		return &apperrors.ArgumentError{Context: []string{"transfer value should be greater than zero"}, Err: errors.New("invalid values")}
+func (s *service) DoTransfer(t TransferRequest) error {
+	var invalid []string
+	if t.Amount == nil {
+		invalid = append(invalid, "amount")
+	}
+	if t.Destination == nil {
+		invalid = append(invalid, "destination")
+	}
+	if len(invalid) > 0 {
+		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
 	}
 
-	originBalance, err := s.r.GetAccountBalance(transfer.Origin)
+	originBalance, err := s.r.GetAccountBalance(t.Origin)
 
 	if err != nil {
 		return err
 	}
 
-	if originBalance < transfer.Amount {
-		return &apperrors.TransferRequestError{Context: "origin account dont have enough funds", Err: errors.New("transfer error")}
+	if originBalance < *t.Amount {
+		return &apperrors.TransferRequestError{Context: "not enough funds", Err: errors.New("transfer error")}
 	}
 
-	if _, err := s.r.GetAccountById(transfer.Destination); err != nil {
+	if _, err := s.r.GetAccountById(*t.Destination); err != nil {
 		if _, ok := err.(*apperrors.AccountNotFoundError); ok {
-			return &apperrors.TransferRequestError{Context: err.Error(), Err: errors.New("transfer error")}
+			return &apperrors.TransferRequestError{Context: "destination account not found", Err: errors.New(err.Error() + ": transfer error")}
 		}
 
 		return err
 	}
 
-	if err := s.r.AddTransfer(transfer); err != nil {
+	if err := s.r.AddTransfer(t); err != nil {
 		return err
 	}
 
