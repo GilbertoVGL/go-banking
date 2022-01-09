@@ -78,11 +78,14 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if err := s.DoTransfer(newTransfer); err != nil {
-			if _, ok := err.(*apperrors.ArgumentError); ok {
+			switch err.(type) {
+			case *apperrors.ArgumentError:
 				respondWithError(w, http.StatusBadRequest, err.Error())
-				return
+			case *apperrors.TransferRequestError:
+				respondWithError(w, http.StatusBadRequest, err.Error())
+			default:
+				respondWithError(w, http.StatusInternalServerError, err.Error())
 			}
-			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 
