@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 )
 
 type Service interface {
@@ -32,7 +33,7 @@ func (s *service) GetTransfers(id uint64, l ListTransferQuery) (ListTransferRepo
 
 func (s *service) DoTransfer(transfer TransferRequest) error {
 	if transfer.Amount <= 0 {
-		return errors.New("transfer value should be greater than zero")
+		return &apperrors.ArgumentError{Context: []string{"transfer value should be greater than zero"}, Err: errors.New("invalid values")}
 	}
 
 	originBalance, err := s.r.GetAccountBalance(transfer.Origin)

@@ -84,7 +84,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Arguments: invalid, Err: errors.New("invalid values")}
+		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
 	}
 
 	if err := validators.ValidateCPF(a.Cpf); err != nil {
@@ -100,7 +100,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Arguments: invalid, Err: errors.New("invalid values")}
+		return &apperrors.ArgumentError{Context: invalid, Err: errors.New("invalid values")}
 	}
 
 	return nil

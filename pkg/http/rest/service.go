@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 	"github.com/GilbertoVGL/go-banking/pkg/http/rest/middleware"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
@@ -77,6 +78,9 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if err := s.DoTransfer(newTransfer); err != nil {
+			if _, ok := err.(*apperrors.ArgumentError); !ok {
+				respondWithError(w, http.StatusBadRequest, err.Error())
+			}
 			respondWithError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
