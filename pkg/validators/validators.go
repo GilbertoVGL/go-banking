@@ -1,7 +1,6 @@
 package validators
 
 import (
-	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -28,26 +27,26 @@ func getVerifyingDigit(starts int, uniqueDigits string) int {
 
 func ValidateCPF(cpf string) error {
 	if !CPFRegex.MatchString(cpf) {
-		return apperrors.NewArgumentError("invalid CPF format or value")
+		return apperrors.NewValidatorError("invalid CPF format or value")
 	}
 
 	cpf = strings.ReplaceAll(cpf, ".", "")
 	cpf = strings.ReplaceAll(cpf, "-", "")
 
 	if _, err := strconv.Atoi(cpf); err != nil {
-		return err
+		return apperrors.NewValidatorError(err.Error())
 	}
 
 	firstDigit, _ := strconv.Atoi(string(cpf[9]))
 
 	if firstVerifier := getVerifyingDigit(1, cpf[0:9]); firstVerifier != firstDigit {
-		return errors.New("invalid CPF")
+		return apperrors.NewValidatorError("invalid CPF")
 	}
 
 	secondDigit, _ := strconv.Atoi(string(cpf[10]))
 
 	if secondVerifier := getVerifyingDigit(0, cpf[0:10]); secondVerifier != secondDigit {
-		return errors.New("invalid CPF")
+		return apperrors.NewValidatorError("invalid CPF")
 	}
 
 	return nil
