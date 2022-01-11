@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -52,14 +53,14 @@ func doLogin(s login.Service) func(http.ResponseWriter, *http.Request) {
 		var newLogin login.LoginRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&newLogin); err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error())
+			respondWithError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		loginResponse, err := s.LoginUser(newLogin)
 
 		if err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error())
+			respondWithError(w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -73,18 +74,18 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		newTransfer.Origin = r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
 
 		if err := json.NewDecoder(r.Body).Decode(&newTransfer); err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error())
+			respondWithError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		if err := s.DoTransfer(newTransfer); err != nil {
 			switch err.(type) {
 			case *apperrors.ArgumentError:
-				respondWithError(w, http.StatusBadRequest, err.Error())
+				respondWithError(w, http.StatusBadRequest, err)
 			case *apperrors.TransferRequestError:
-				respondWithError(w, http.StatusBadRequest, err.Error())
+				respondWithError(w, http.StatusBadRequest, err)
 			default:
-				respondWithError(w, http.StatusInternalServerError, err.Error())
+				respondWithError(w, http.StatusInternalServerError, err)
 			}
 			return
 		}
@@ -121,14 +122,14 @@ func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if len(invalid) > 0 {
-			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", ")))
+			respondWithError(w, http.StatusBadRequest, errors.New(fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", "))))
 			return
 		}
 
 		listTransfer, err := s.GetTransfers(id, query)
 
 		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -141,12 +142,12 @@ func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
 		var newAccount account.NewAccountRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&newAccount); err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error())
+			respondWithError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		if err := s.NewAccount(newAccount); err != nil {
-			respondWithError(w, http.StatusBadRequest, err.Error())
+			respondWithError(w, http.StatusBadRequest, err)
 			return
 		}
 
@@ -181,14 +182,14 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if len(invalid) > 0 {
-			respondWithError(w, http.StatusBadRequest, fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", ")))
+			respondWithError(w, http.StatusBadRequest, errors.New(fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", "))))
 			return
 		}
 
 		listAccounts, err := s.List(query)
 
 		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -202,14 +203,14 @@ func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 		userId, err := strconv.Atoi(id)
 
 		if err != nil {
-			respondWithError(w, http.StatusBadRequest, "invalid id format")
+			respondWithError(w, http.StatusBadRequest, errors.New("invalid id format"))
 			return
 		}
 
 		balance, err := s.GetBalance(uint64(userId))
 
 		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -223,7 +224,7 @@ func getSelfBalance(s account.Service) func(http.ResponseWriter, *http.Request) 
 		balance, err := s.GetBalance(userId)
 
 		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, err.Error())
+			respondWithError(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -231,8 +232,8 @@ func getSelfBalance(s account.Service) func(http.ResponseWriter, *http.Request) 
 	}
 }
 
-func respondWithError(w http.ResponseWriter, code int, message string) {
-	respondWithJSON(w, code, map[string]string{"error": message})
+func respondWithError(w http.ResponseWriter, code int, err error) {
+	respondWithJSON(w, code, map[string]string{"error": err.Error()})
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
