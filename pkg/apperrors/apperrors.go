@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+const DB_ERROR_PREFIX string = "database error"
+const ARGUMENT_ERROR_PREFIX string = "invalid argument"
+const TRANSFER_ERROR_PREFIX string = "transfer error"
+const CONFIG_ERROR_PREFIX string = "configuration error"
+
 type ArgumentError struct {
 	Context string
 	Err     string
@@ -15,7 +20,7 @@ func (e *ArgumentError) Error() string {
 }
 
 func NewArgumentError(context ...string) error {
-	return &ArgumentError{Context: strings.Join(context, ": "), Err: "invalid argument"}
+	return &ArgumentError{Context: strings.Join(context, ": "), Err: ARGUMENT_ERROR_PREFIX}
 }
 
 type TransferRequestError struct {
@@ -28,7 +33,7 @@ func (e *TransferRequestError) Error() string {
 }
 
 func NewTransferRequestError(context ...string) error {
-	return &TransferRequestError{Context: strings.Join(context, ": "), Err: "transfer error"}
+	return &TransferRequestError{Context: strings.Join(context, ": "), Err: TRANSFER_ERROR_PREFIX}
 }
 
 type AccountNotFoundError struct {
@@ -41,7 +46,7 @@ func (e *AccountNotFoundError) Error() string {
 }
 
 func NewAccountNotFoundError(context ...string) error {
-	return &AccountNotFoundError{Context: strings.Join(context, ": "), Err: "database error"}
+	return &AccountNotFoundError{Context: strings.Join(context, ": "), Err: DB_ERROR_PREFIX}
 }
 
 type DatabaseError struct {
@@ -54,5 +59,18 @@ func (e *DatabaseError) Error() string {
 }
 
 func NewDatabaseError(context ...string) error {
-	return &DatabaseError{Context: strings.Join(context, ": "), Err: "database error"}
+	return &DatabaseError{Context: strings.Join(context, ": "), Err: DB_ERROR_PREFIX}
+}
+
+type EnvVarError struct {
+	Context string
+	Err     string
+}
+
+func (e *EnvVarError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Err, e.Context)
+}
+
+func NewEnvVarError(context ...string) error {
+	return &EnvVarError{Context: strings.Join(context, ": "), Err: CONFIG_ERROR_PREFIX}
 }

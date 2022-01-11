@@ -1,12 +1,11 @@
 package config
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 	"github.com/joho/godotenv"
 )
 
@@ -43,7 +42,7 @@ func verifyEnv() error {
 	}
 
 	if len(missing) > 0 {
-		return errors.New(fmt.Sprintf("Missing required env variables: %s", strings.Join(missing, ", ")))
+		return apperrors.NewEnvVarError("Missing required variables", strings.Join(missing, ", "))
 	}
 
 	return nil
