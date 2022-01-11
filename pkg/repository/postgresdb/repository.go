@@ -159,14 +159,14 @@ func (r *postgresDB) ListAccount(params account.ListAccountQuery) (account.ListA
 	rows, err := conn.Query(context.Background(), query)
 
 	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
-		return accountsResponse, err
+		return accountsResponse, apperrors.NewDatabaseError(err.Error())
 	}
 
 	for rows.Next() {
 		var account account.ListAccount
 
 		if err := rows.Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance); err != nil {
-			return accountsResponse, err
+			return accountsResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
 		accounts = append(accounts, account)
@@ -175,7 +175,7 @@ func (r *postgresDB) ListAccount(params account.ListAccountQuery) (account.ListA
 	countQuery := fmt.Sprintf("select count(*) from accounts;")
 
 	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
-		return accountsResponse, err
+		return accountsResponse, apperrors.NewDatabaseError(err.Error())
 	}
 
 	accountsResponse.Data = accounts
@@ -198,7 +198,7 @@ func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
 	_, err = conn.Exec(context.Background(), query)
 
 	if err != nil {
-		return err
+		return apperrors.NewDatabaseError(err.Error())
 	}
 
 	return nil
@@ -216,7 +216,7 @@ func (r *postgresDB) GetAccountBalance(id uint64) (int64, error) {
 
 	query := fmt.Sprintf("select balance from accounts where id = %d", id)
 	if err := conn.QueryRow(context.Background(), query).Scan(&balance); err != nil {
-		return balance, err
+		return balance, apperrors.NewDatabaseError(err.Error())
 	}
 
 	return balance, nil
@@ -256,7 +256,7 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 	rows, err := conn.Query(context.Background(), query)
 
 	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
-		return transferResponse, err
+		return transferResponse, apperrors.NewDatabaseError(err.Error())
 	}
 
 	for rows.Next() {
@@ -264,14 +264,14 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 
 		if err := rows.Scan(&transfer.Amount, &transfer.CreatedAt, &transfer.OriginName, &transfer.OriginCpf, &transfer.DestinationName, &transfer.DestinationCpf); err != nil {
 
-			return transferResponse, err
+			return transferResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
 		accounts = append(accounts, transfer)
 	}
 
 	if err != nil {
-		return transferResponse, err
+		return transferResponse, apperrors.NewDatabaseError(err.Error())
 	}
 
 	countQuery := fmt.Sprintf(`select 
@@ -287,7 +287,7 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 									tr.account_destination_id = %d;`, id, id)
 
 	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
-		return transferResponse, err
+		return transferResponse, apperrors.NewDatabaseError(err.Error())
 	}
 
 	transferResponse.Data = accounts
@@ -309,7 +309,7 @@ func (r *postgresDB) AddTransfer(t transfer.TransferRequest) error {
 	tx, err := conn.Begin(context.Background())
 
 	if err != nil {
-		return err
+		return apperrors.NewDatabaseError(err.Error())
 	}
 
 	defer tx.Rollback(context.Background())
@@ -319,21 +319,21 @@ func (r *postgresDB) AddTransfer(t transfer.TransferRequest) error {
 	destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", *t.Amount, *t.Destination)
 
 	if _, err = tx.Exec(context.Background(), insertTransferQuery); err != nil {
-		return err
+		return apperrors.NewDatabaseError(err.Error())
 	}
 
 	if _, err = tx.Exec(context.Background(), originBalanceQuery); err != nil {
-		return err
+		return apperrors.NewDatabaseError(err.Error())
 	}
 
 	if _, err = tx.Exec(context.Background(), destinationBalanceQuery); err != nil {
-		return err
+		return apperrors.NewDatabaseError(err.Error())
 	}
 
 	err = tx.Commit(context.Background())
 
 	if err != nil {
-		return err
+		return apperrors.NewDatabaseError(err.Error())
 	}
 
 	return nil
