@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 	"github.com/GilbertoVGL/go-banking/pkg/validators"
 	"github.com/golang-jwt/jwt"
 )
@@ -70,11 +71,11 @@ func validateValues(l LoginRequest) error {
 		invalid = append(invalid, "Secret")
 	}
 	if len(invalid) > 0 {
-		return errors.New(fmt.Sprintf("missing values: %s", strings.Join(invalid, ", ")))
+		return apperrors.NewArgumentError("missing values", strings.Join(invalid, ", "))
 	}
 
 	if err := validators.ValidateCPF(l.Cpf); err != nil {
-		return errors.New(fmt.Sprintf("invalid input: %s", err.Error()))
+		return apperrors.NewArgumentError("invalid CPF", err.Error())
 	}
 
 	return nil
