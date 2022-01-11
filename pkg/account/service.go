@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
 	"github.com/GilbertoVGL/go-banking/pkg/validators"
@@ -83,7 +84,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Context: invalid, Err: "invalid values"}
+		return apperrors.NewArgumentError(strings.Join(invalid, ", "))
 	}
 
 	if err := validators.ValidateCPF(a.Cpf); err != nil {
@@ -99,7 +100,7 @@ func validateAccountValues(a NewAccountRequest) error {
 	}
 
 	if len(invalid) > 0 {
-		return &apperrors.ArgumentError{Context: invalid, Err: "invalid values"}
+		return apperrors.NewArgumentError(strings.Join(invalid, ", "))
 	}
 
 	return nil

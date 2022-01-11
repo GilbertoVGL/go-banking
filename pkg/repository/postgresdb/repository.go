@@ -59,7 +59,7 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 		db, err := new()
 		if err != nil {
 			log.Print("warning: unable to initialize db:", err)
-			return nil, errors.New(fmt.Sprintf("unable to initialize db: %s", err.Error()))
+			return nil, apperrors.NewDatabaseError("unable to initialize db", err.Error())
 		}
 		r = &postgresDB{db}
 	}
@@ -67,7 +67,7 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 	conn, err := r.db.Acquire(context.Background())
 
 	if err != nil {
-		return conn, err
+		return conn, apperrors.NewDatabaseError("unable to get database", err.Error())
 	}
 
 	return conn, nil
@@ -76,7 +76,7 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 func New() (*postgresDB, error) {
 	db, err := new()
 	if err != nil {
-		return &postgresDB{}, err
+		return &postgresDB{}, apperrors.NewDatabaseError("unable to initialize db", err.Error())
 	}
 
 	return &postgresDB{db}, nil
@@ -101,9 +101,9 @@ func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
-			return account, &apperrors.AccountNotFoundError{Context: "account not found", Err: "database error"}
+			return account, apperrors.NewAccountNotFoundError("account not found")
 		}
-		return account, &apperrors.DatabaseError{Context: err.Error(), Err: "database error"}
+		return account, apperrors.NewDatabaseError(err.Error())
 	}
 
 	return account, nil
@@ -124,7 +124,7 @@ func (r *postgresDB) GetAccountBySecretAndCPF(l login.LoginRequest) (login.Accou
 
 	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Active); err != nil {
 		if errors.Is(pgx.ErrNoRows, err) {
-			return account, errors.New("invalid cpf or password")
+			return account, apperrors.NewDatabaseError("invalid cpf or password")
 		}
 
 		return account, err

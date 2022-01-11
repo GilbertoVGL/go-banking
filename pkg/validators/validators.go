@@ -28,7 +28,7 @@ func getVerifyingDigit(starts int, uniqueDigits string) int {
 
 func ValidateCPF(cpf string) error {
 	if !CPFRegex.MatchString(cpf) {
-		return &apperrors.ArgumentError{Context: []string{"invalid CPF format or value"}, Err: "invalid argument"}
+		return apperrors.NewArgumentError("invalid CPF format or value")
 	}
 
 	cpf = strings.ReplaceAll(cpf, ".", "")
