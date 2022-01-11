@@ -2,8 +2,6 @@ package rest
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,7 +51,7 @@ func doLogin(s login.Service) func(http.ResponseWriter, *http.Request) {
 		var newLogin login.LoginRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&newLogin); err != nil {
-			respondWithError(w, http.StatusBadRequest, err)
+			respondWithError(w, http.StatusBadRequest, apperrors.NewArgumentError(err.Error()))
 			return
 		}
 
@@ -74,7 +72,7 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		newTransfer.Origin = r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
 
 		if err := json.NewDecoder(r.Body).Decode(&newTransfer); err != nil {
-			respondWithError(w, http.StatusBadRequest, err)
+			respondWithError(w, http.StatusBadRequest, apperrors.NewArgumentError(err.Error()))
 			return
 		}
 
@@ -122,7 +120,7 @@ func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if len(invalid) > 0 {
-			respondWithError(w, http.StatusBadRequest, errors.New(fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", "))))
+			respondWithError(w, http.StatusBadRequest, apperrors.NewArgumentError("invalid query params", strings.Join(invalid, ", ")))
 			return
 		}
 
@@ -142,7 +140,7 @@ func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
 		var newAccount account.NewAccountRequest
 
 		if err := json.NewDecoder(r.Body).Decode(&newAccount); err != nil {
-			respondWithError(w, http.StatusBadRequest, err)
+			respondWithError(w, http.StatusBadRequest, apperrors.NewArgumentError(err.Error()))
 			return
 		}
 
@@ -182,7 +180,7 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 		}
 
 		if len(invalid) > 0 {
-			respondWithError(w, http.StatusBadRequest, errors.New(fmt.Sprintf("invalid query params: %s", strings.Join(invalid, ", "))))
+			respondWithError(w, http.StatusBadRequest, apperrors.NewArgumentError("invalid query params", strings.Join(invalid, ", ")))
 			return
 		}
 
@@ -203,7 +201,7 @@ func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 		userId, err := strconv.Atoi(id)
 
 		if err != nil {
-			respondWithError(w, http.StatusBadRequest, errors.New("invalid id format"))
+			respondWithError(w, http.StatusBadRequest, apperrors.NewArgumentError("invalid id format"))
 			return
 		}
 
