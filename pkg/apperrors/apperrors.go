@@ -9,6 +9,7 @@ const DB_ERROR_PREFIX string = "database error"
 const ARGUMENT_ERROR_PREFIX string = "invalid argument"
 const TRANSFER_ERROR_PREFIX string = "transfer error"
 const CONFIG_ERROR_PREFIX string = "configuration error"
+const AUTH_ERROR_PREFIX string = "authentication error"
 
 type ArgumentError struct {
 	Context string
@@ -73,4 +74,17 @@ func (e *EnvVarError) Error() string {
 
 func NewEnvVarError(context ...string) error {
 	return &EnvVarError{Context: strings.Join(context, ": "), Err: CONFIG_ERROR_PREFIX}
+}
+
+type AuthError struct {
+	Context string
+	Err     string
+}
+
+func (e *AuthError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Err, e.Context)
+}
+
+func NewAuthError(context ...string) error {
+	return &AuthError{Context: strings.Join(context, ": "), Err: AUTH_ERROR_PREFIX}
 }
