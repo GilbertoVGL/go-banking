@@ -231,7 +231,7 @@ func getSelfBalance(s account.Service) func(http.ResponseWriter, *http.Request) 
 }
 
 func respondWithError(w http.ResponseWriter, code int, err error) {
-	respondWithJSON(w, code, map[string]string{"error": err.Error()})
+	respondWithJSON(w, code, apperrors.RestError{Err: err.Error()})
 }
 
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {

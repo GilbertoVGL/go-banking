@@ -10,7 +10,6 @@ const ARGUMENT_ERROR_PREFIX string = "invalid argument"
 const TRANSFER_ERROR_PREFIX string = "transfer error"
 const CONFIG_ERROR_PREFIX string = "configuration error"
 const AUTH_ERROR_PREFIX string = "authentication error"
-const REST_ERROR_PREFIX string = "authentication error"
 
 type ArgumentError struct {
 	Context string
@@ -43,8 +42,7 @@ type AuthError struct {
 }
 
 type RestError struct {
-	Context string
-	Err     string
+	Err string `json:"error"`
 }
 
 func (e *ArgumentError) Error() string {
@@ -71,10 +69,6 @@ func (e *AuthError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Err, e.Context)
 }
 
-func (e *RestError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Err, e.Context)
-}
-
 func NewArgumentError(context ...string) error {
 	return &ArgumentError{Context: strings.Join(context, ": "), Err: ARGUMENT_ERROR_PREFIX}
 }
@@ -97,8 +91,4 @@ func NewEnvVarError(context ...string) error {
 
 func NewAuthError(context ...string) error {
 	return &AuthError{Context: strings.Join(context, ": "), Err: AUTH_ERROR_PREFIX}
-}
-
-func NewRestError(context ...string) error {
-	return &RestError{Context: strings.Join(context, ": "), Err: REST_ERROR_PREFIX}
 }
