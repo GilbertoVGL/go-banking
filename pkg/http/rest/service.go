@@ -46,7 +46,7 @@ func healthCheck(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, isOk{true})
 }
 
-func doLogin(s login.Service) func(http.ResponseWriter, *http.Request) {
+func doLogin(s login.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newLogin login.LoginRequest
 
@@ -66,7 +66,7 @@ func doLogin(s login.Service) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
+func doTransfer(s transfer.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newTransfer transfer.TransferRequest
 		newTransfer.Origin = r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
@@ -92,7 +92,7 @@ func doTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
+func getTransfer(s transfer.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var invalid []string
 		id := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
@@ -135,7 +135,7 @@ func getTransfer(s transfer.Service) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
+func newAccount(s account.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var newAccount account.NewAccountRequest
 
@@ -153,7 +153,7 @@ func newAccount(s account.Service) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
+func listAccounts(s account.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var invalid []string
 		query := account.ListAccountQuery{
@@ -195,7 +195,7 @@ func listAccounts(s account.Service) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
+func getBalance(s account.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
 		userId, err := strconv.Atoi(id)
@@ -216,7 +216,7 @@ func getBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
 	}
 }
 
-func getSelfBalance(s account.Service) func(http.ResponseWriter, *http.Request) {
+func getSelfBalance(s account.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
 		balance, err := s.GetBalance(userId)
