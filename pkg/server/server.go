@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
+	"github.com/GilbertoVGL/go-banking/pkg/config"
 	"github.com/GilbertoVGL/go-banking/pkg/http/rest"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/repository/postgresdb"
@@ -27,7 +28,11 @@ func New(port int) (*http.Server, error) {
 	addr := fmt.Sprintf("localhost:%d", port)
 
 	return &http.Server{
-		Addr:    addr,
-		Handler: r,
+		Addr:              addr,
+		WriteTimeout:      config.ServerWriteTimeout,
+		ReadTimeout:       config.ServerReadTimeout,
+		IdleTimeout:       config.ServerIdleTimeout,
+		ReadHeaderTimeout: config.ServerReadHeaderTimeout,
+		Handler:           r,
 	}, nil
 }
