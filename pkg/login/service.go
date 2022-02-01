@@ -67,7 +67,6 @@ func (s *service) LoginUser(ctx context.Context, loginReq LoginRequest, loginCh 
 	case err := <-errCh:
 		errorCh <- err
 	case <-ctx.Done():
-		fmt.Println("CONTEXT DONE ON LoginUser")
 		errorCh <- ctx.Err()
 	}
 }
