@@ -1,6 +1,7 @@
 package login
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -14,11 +15,11 @@ import (
 )
 
 type Repository interface {
-	GetAccountBySecretAndCPF(LoginRequest) (Account, error)
+	GetAccountBySecretAndCPF(context.Context, LoginRequest, chan Account, chan error)
 }
 
 type Service interface {
-	LoginUser(LoginRequest) (LoginReponse, error)
+	LoginUser(context.Context, LoginRequest, chan LoginReponse, chan error)
 }
 
 type service struct {
@@ -29,36 +30,46 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) LoginUser(login LoginRequest) (LoginReponse, error) {
-	var loginResponse LoginReponse
-
-	if err := validateValues(login); err != nil {
-		return loginResponse, err
+func (s *service) LoginUser(ctx context.Context, loginReq LoginRequest, loginCh chan LoginReponse, errorCh chan error) {
+	if err := validateValues(loginReq); err != nil {
+		errorCh <- err
+		return
 	}
 
-	login.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(login.Secret+os.Getenv("SALT"))))
-	account, err := s.r.GetAccountBySecretAndCPF(login)
+	accountCh := make(chan Account)
+	errCh := make(chan error)
+	loginReq.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(loginReq.Secret+os.Getenv("SALT"))))
 
-	if err != nil {
-		return loginResponse, err
+	go s.r.GetAccountBySecretAndCPF(ctx, loginReq, accountCh, errCh)
+
+	select {
+	case account := <-accountCh:
+		if !account.Active {
+			errorCh <- errors.New("this account is inactive")
+			return
+		}
+
+		at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"authorized": true,
+			"userId":     account.Id,
+			"exp":        time.Now().Add(time.Minute * 15).Unix(),
+		})
+		token, err := at.SignedString([]byte(os.Getenv("JWT_SECRET")))
+
+		if err != nil {
+			errorCh <- errors.New("failed to create user token")
+			return
+		}
+
+		loginCh <- LoginReponse{Token: token}
+
+		return
+	case err := <-errCh:
+		errorCh <- err
+	case <-ctx.Done():
+		fmt.Println("CONTEXT DONE ON LoginUser")
+		errorCh <- ctx.Err()
 	}
-
-	if !account.Active {
-		return loginResponse, errors.New("this account is inactive")
-	}
-
-	at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"authorized": true,
-		"userId":     account.Id,
-		"exp":        time.Now().Add(time.Minute * 15).Unix(),
-	})
-	token, err := at.SignedString([]byte(os.Getenv("JWT_SECRET")))
-
-	if err != nil {
-		return loginResponse, errors.New("failed to create user token")
-	}
-
-	return LoginReponse{Token: token}, nil
 }
 
 func validateValues(l LoginRequest) error {

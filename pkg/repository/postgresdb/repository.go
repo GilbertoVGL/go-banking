@@ -109,28 +109,33 @@ func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
 	return account, nil
 }
 
-func (r *postgresDB) GetAccountBySecretAndCPF(l login.LoginRequest) (login.Account, error) {
-	var account login.Account
+func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest, accountCh chan login.Account, errorCh chan error) {
+	select {
+	default:
+		conn, err := r.getConn()
 
-	conn, err := r.getConn()
-
-	if err != nil {
-		return account, err
-	}
-
-	defer conn.Release()
-
-	query := fmt.Sprintf("select id, active from accounts where cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
-
-	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Active); err != nil {
-		if errors.Is(pgx.ErrNoRows, err) {
-			return account, apperrors.NewDatabaseError("invalid cpf or password")
+		if err != nil {
+			errorCh <- err
+			return
 		}
 
-		return account, err
-	}
+		defer conn.Release()
+		var account login.Account
+		query := fmt.Sprintf("select id, active from accounts where cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
 
-	return account, nil
+		if err := conn.QueryRow(ctx, query).Scan(&account.Id, &account.Active); err != nil {
+			if errors.Is(pgx.ErrNoRows, err) {
+				errorCh <- apperrors.NewDatabaseError("invalid cpf or password")
+				return
+			}
+
+			errorCh <- err
+		}
+
+		accountCh <- account
+	case <-ctx.Done():
+		errorCh <- ctx.Err()
+	}
 }
 
 func (r *postgresDB) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {

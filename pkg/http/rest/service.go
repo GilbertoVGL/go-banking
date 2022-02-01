@@ -22,6 +22,7 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 	r.HandleFunc("/", healthCheck).Methods("GET")
 	r.HandleFunc("/login", doLogin(l)).Methods("POST")
 	r.HandleFunc("/accounts", newAccount(a)).Methods("POST")
+	r.Use(middleware.ReqTimeout)
 
 	// Needs auth \/
 	transferRouter := r.PathPrefix("/transfers").Subrouter()
@@ -35,6 +36,7 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 	accountRouter.HandleFunc("/{id}/balance", getBalance(a)).Methods("GET")
 	accountRouter.Use(middleware.Auth)
 
+	// return http.TimeoutHandler(r, config.ServerReadTimeout, "Timeout!")
 	return r
 }
 
@@ -55,14 +57,21 @@ func doLogin(s login.Service) http.HandlerFunc {
 			return
 		}
 
-		loginResponse, err := s.LoginUser(newLogin)
+		loginCh := make(chan login.LoginReponse)
+		errorCh := make(chan error)
+		go s.LoginUser(r.Context(), newLogin, loginCh, errorCh)
 
-		if err != nil {
+		select {
+		case loginResponse := <-loginCh:
+			respondWithJSON(w, http.StatusOK, loginResponse)
+			return
+		case err := <-errorCh:
 			respondWithError(w, http.StatusBadRequest, err)
 			return
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
+			return
 		}
-
-		respondWithJSON(w, http.StatusOK, loginResponse)
 	}
 }
 
