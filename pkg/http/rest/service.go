@@ -10,6 +10,7 @@ import (
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
 	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
+	"github.com/GilbertoVGL/go-banking/pkg/config"
 	"github.com/GilbertoVGL/go-banking/pkg/http/rest/middleware"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
@@ -36,8 +37,7 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 	accountRouter.HandleFunc("/{id}/balance", getBalance(a)).Methods("GET")
 	accountRouter.Use(middleware.Auth)
 
-	// return http.TimeoutHandler(r, config.ServerReadTimeout, "Timeout!")
-	return r
+	return http.TimeoutHandler(r, config.ServerReadTimeout, "Timeout")
 }
 
 func healthCheck(w http.ResponseWriter, r *http.Request) {
