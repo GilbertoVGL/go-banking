@@ -11,6 +11,7 @@ const TRANSFER_ERROR_PREFIX string = "transfer error"
 const CONFIG_ERROR_PREFIX string = "configuration error"
 const AUTH_ERROR_PREFIX string = "authentication error"
 const VALIDATOR_ERROR_PREFIX string = "validator error"
+const INTERNAL_ERROR_PREFIX string = "server error"
 
 type ArgumentError struct {
 	Context string
@@ -47,6 +48,11 @@ type ValidatorError struct {
 	Err     string
 }
 
+type InternalServerError struct {
+	Context string
+	Err     string
+}
+
 type RestError struct {
 	Err string `json:"error"`
 }
@@ -79,6 +85,10 @@ func (e *ValidatorError) Error() string {
 	return fmt.Sprintf("%s: %s", e.Err, e.Context)
 }
 
+func (e *InternalServerError) Error() string {
+	return fmt.Sprintf("%s: %s", e.Err, e.Context)
+}
+
 func NewArgumentError(context ...string) error {
 	return &ArgumentError{Context: strings.Join(context, ": "), Err: ARGUMENT_ERROR_PREFIX}
 }
@@ -105,4 +115,8 @@ func NewAuthError(context ...string) error {
 
 func NewValidatorError(context ...string) error {
 	return &ValidatorError{Context: strings.Join(context, ": "), Err: VALIDATOR_ERROR_PREFIX}
+}
+
+func NewInternalServerError(context ...string) error {
+	return &InternalServerError{Context: strings.Join(context, ": "), Err: INTERNAL_ERROR_PREFIX}
 }
