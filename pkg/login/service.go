@@ -3,7 +3,6 @@ package login
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -55,13 +54,13 @@ func (s *service) LoginUser(ctx context.Context, loginReq LoginRequest) (LoginRe
 	select {
 	case account := <-accountCh:
 		if !account.Active {
-			return login, errors.New("this account is inactive")
+			return login, apperrors.NewAuthError("this account is inactive")
 		}
 		var err error
 		login.Token, err = generateToken(account)
 
 		if err != nil {
-			return login, errors.New("failed to create user token")
+			return login, apperrors.NewAuthError("failed to create user token")
 		}
 
 		return login, nil
