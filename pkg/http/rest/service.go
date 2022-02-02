@@ -3,9 +3,11 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
@@ -37,7 +39,11 @@ func NewRouter(l login.Service, a account.Service, t transfer.Service) http.Hand
 	accountRouter.HandleFunc("/{id}/balance", getBalance(a)).Methods("GET")
 	accountRouter.Use(middleware.Auth)
 
-	return http.TimeoutHandler(r, config.ServerReadTimeout, "Timeout")
+	headersOk := handlers.AllowedHeaders([]string{"Origin", "Content-Type", "Authorization"})
+	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ORIGIN_ALLOWED")})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "POST", "OPTIONS"})
+
+	return http.TimeoutHandler(handlers.CORS(originsOk, headersOk, methodsOk)(r), config.ServerReadTimeout, "Timeout")
 }
 
 func healthCheck(w http.ResponseWriter, r *http.Request) {

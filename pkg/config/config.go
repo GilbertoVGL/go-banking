@@ -26,6 +26,7 @@ var requiredEnvs []string = []string{
 	"SERVER_READ_TIMEOUT_S",
 	"SERVER_IDLE_TIMEOUT_S",
 	"SERVER_READ_HEADER_TIMEOUT_S",
+	"ORIGIN_ALLOWED",
 }
 
 var ServerWriteTimeout time.Duration
