@@ -1,11 +1,11 @@
 version: "3"
 services:
-  # app:
-  #   env_file:
-  #     - .env
-  #   build:
-  #     context: .
-  #   network_mode: "host"
+  app:
+    env_file:
+      - .env
+    build:
+      context: .
+    network_mode: "host"
 
   db:
     restart: always
