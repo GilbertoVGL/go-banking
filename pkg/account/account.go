@@ -54,5 +54,6 @@ type AccountResponse struct {
 	Balance int64  `json:"balance"`
 }
 
-type NewAccountError struct {
+type NewAccountResponse struct {
+	Msg string `json:"msg"`
 }

@@ -186,20 +186,21 @@ func newAccount(s account.Service) http.HandlerFunc {
 			return
 		}
 
-		newAccountCh := make(chan bool)
+		newAccountCh := make(chan account.NewAccountResponse)
 		errCh := make(chan error)
 
 		go func() {
-			if err := s.NewAccount(r.Context(), newAccount); err != nil {
+			message, err := s.NewAccount(r.Context(), newAccount)
+			if err != nil {
 				errCh <- err
 				return
 			}
-			newAccountCh <- true
+			newAccountCh <- message
 		}()
 
 		select {
-		case <-newAccountCh:
-			respondWithJSON(w, http.StatusCreated, map[string]string{"msg": "account created"})
+		case message := <-newAccountCh:
+			respondWithJSON(w, http.StatusCreated, message)
 		case err := <-errCh:
 			respondWithError(w, http.StatusBadRequest, err)
 		case <-r.Context().Done():

@@ -19,7 +19,7 @@ type Repository interface {
 
 type Service interface {
 	List(context.Context, ListAccountQuery) (ListAccountsReponse, error)
-	NewAccount(context.Context, NewAccountRequest) error
+	NewAccount(context.Context, NewAccountRequest) (NewAccountResponse, error)
 	GetBalance(context.Context, uint64) (BalanceResponse, error)
 }
 
@@ -54,7 +54,8 @@ func (s *service) List(ctx context.Context, q ListAccountQuery) (ListAccountsRep
 	}
 }
 
-func (s *service) NewAccount(ctx context.Context, newAccount NewAccountRequest) error {
+func (s *service) NewAccount(ctx context.Context, newAccount NewAccountRequest) (NewAccountResponse, error) {
+	var newAccountResponse NewAccountResponse
 	accountCh := make(chan bool)
 	errCh := make(chan error)
 
@@ -76,11 +77,12 @@ func (s *service) NewAccount(ctx context.Context, newAccount NewAccountRequest) 
 
 	select {
 	case <-accountCh:
-		return nil
+		newAccountResponse.Msg = "account created"
+		return newAccountResponse, nil
 	case err := <-errCh:
-		return err
+		return newAccountResponse, err
 	case <-ctx.Done():
-		return ctx.Err()
+		return newAccountResponse, ctx.Err()
 	}
 }
 
