@@ -49,8 +49,14 @@ type mockService struct {
 func (ms *mockService) List(ctx context.Context, a account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	return ms.r.ListAccount(ctx, a)
 }
-func (ms *mockService) NewAccount(ctx context.Context, a account.NewAccountRequest) error {
-	return ms.r.AddAccount(ctx, a)
+func (ms *mockService) NewAccount(ctx context.Context, a account.NewAccountRequest) (account.NewAccountResponse, error) {
+	var r account.NewAccountResponse
+	err := ms.r.AddAccount(ctx, a)
+	if err != nil {
+		return r, err
+	}
+	r.Msg = "account created"
+	return r, nil
 }
 func (ms *mockService) GetBalance(ctx context.Context, a uint64) (account.BalanceResponse, error) {
 	return ms.r.GetAccountBalance(ctx, a)
