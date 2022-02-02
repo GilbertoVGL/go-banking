@@ -9,10 +9,10 @@ import (
 
 func ReqTimeout(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.Background()
+		ctx := r.Context()
 		ctx, cancel := context.WithTimeout(ctx, config.RequestTimeout)
 		defer cancel()
-		r = r.WithContext(ctx)
+		r = r.Clone(ctx)
 
 		next.ServeHTTP(w, r)
 	})
