@@ -1,6 +1,7 @@
 package account
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -11,15 +12,15 @@ import (
 )
 
 type Repository interface {
-	ListAccount(ListAccountQuery) (ListAccountsReponse, error)
-	AddAccount(NewAccountRequest) error
-	GetAccountBalance(uint64) (int64, error)
+	ListAccount(context.Context, ListAccountQuery) (ListAccountsReponse, error)
+	AddAccount(context.Context, NewAccountRequest) error
+	GetAccountBalance(context.Context, uint64) (int64, error)
 }
 
 type Service interface {
-	List(ListAccountQuery) (ListAccountsReponse, error)
-	NewAccount(NewAccountRequest) error
-	GetBalance(uint64) (BalanceResponse, error)
+	List(context.Context, ListAccountQuery) (ListAccountsReponse, error)
+	NewAccount(context.Context, NewAccountRequest) error
+	GetBalance(context.Context, uint64) (BalanceResponse, error)
 }
 
 type service struct {
@@ -30,41 +31,82 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) List(q ListAccountQuery) (ListAccountsReponse, error) {
-	accounts, err := s.r.ListAccount(q)
+func (s *service) List(ctx context.Context, q ListAccountQuery) (ListAccountsReponse, error) {
+	accountsCh := make(chan ListAccountsReponse)
+	errCh := make(chan error)
 
-	if err != nil {
-		return accounts, err
+	go func() {
+		accounts, err := s.r.ListAccount(ctx, q)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		accountsCh <- accounts
+	}()
+
+	select {
+	case accounts := <-accountsCh:
+		return accounts, nil
+	case err := <-errCh:
+		return ListAccountsReponse{}, err
+	case <-ctx.Done():
+		return ListAccountsReponse{}, ctx.Err()
 	}
-
-	return accounts, err
 }
 
-func (s *service) NewAccount(newAccount NewAccountRequest) error {
+func (s *service) NewAccount(ctx context.Context, newAccount NewAccountRequest) error {
+	accountCh := make(chan bool)
+	errCh := make(chan error)
 
-	if err := validateAccountValues(newAccount); err != nil {
+	go func() {
+		if err := validateAccountValues(newAccount); err != nil {
+			errCh <- err
+			return
+		}
+
+		newAccount.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(newAccount.Secret+os.Getenv("SALT"))))
+
+		if err := s.r.AddAccount(ctx, newAccount); err != nil {
+			errCh <- err
+			return
+		}
+
+		accountCh <- true
+	}()
+
+	select {
+	case <-accountCh:
+		return nil
+	case err := <-errCh:
 		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
-	newAccount.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(newAccount.Secret+os.Getenv("SALT"))))
-
-	if err := s.r.AddAccount(newAccount); err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func (s *service) GetBalance(userId uint64) (BalanceResponse, error) {
+func (s *service) GetBalance(ctx context.Context, userId uint64) (BalanceResponse, error) {
 	var balanceResponse BalanceResponse
-	balance, err := s.r.GetAccountBalance(userId)
-	balanceResponse.Balance = balance
+	balanceCh := make(chan int64)
+	errCh := make(chan error)
 
-	if err != nil {
+	go func() {
+		balance, err := s.r.GetAccountBalance(ctx, userId)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		balanceCh <- balance
+	}()
+
+	select {
+	case balance := <-balanceCh:
+		balanceResponse.Balance = balance
+		return balanceResponse, nil
+	case err := <-errCh:
 		return balanceResponse, err
+	case <-ctx.Done():
+		return balanceResponse, ctx.Err()
 	}
-
-	return balanceResponse, nil
 }
 
 func validateAccountValues(a NewAccountRequest) error {

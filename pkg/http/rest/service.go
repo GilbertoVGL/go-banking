@@ -190,7 +190,7 @@ func newAccount(s account.Service) http.HandlerFunc {
 		errCh := make(chan error)
 
 		go func() {
-			if err := s.NewAccount(newAccount); err != nil {
+			if err := s.NewAccount(r.Context(), newAccount); err != nil {
 				errCh <- err
 				return
 			}
@@ -244,7 +244,7 @@ func listAccounts(s account.Service) http.HandlerFunc {
 		errCh := make(chan error)
 
 		go func() {
-			listAccounts, err := s.List(query)
+			listAccounts, err := s.List(r.Context(), query)
 			if err != nil {
 				errCh <- err
 				return
@@ -277,7 +277,7 @@ func getBalance(s account.Service) http.HandlerFunc {
 		errCh := make(chan error)
 
 		go func() {
-			balance, err := s.GetBalance(uint64(userId))
+			balance, err := s.GetBalance(r.Context(), uint64(userId))
 			if err != nil {
 				errCh <- err
 				return
@@ -304,7 +304,7 @@ func getSelfBalance(s account.Service) http.HandlerFunc {
 		errCh := make(chan error)
 
 		go func() {
-			balance, err := s.GetBalance(userId)
+			balance, err := s.GetBalance(r.Context(), userId)
 			if err != nil {
 				errCh <- err
 				return
