@@ -94,7 +94,7 @@ func doTransfer(s transfer.Service) http.HandlerFunc {
 		errCh := make(chan error)
 
 		go func() {
-			if err := s.DoTransfer(newTransfer); err != nil {
+			if err := s.DoTransfer(r.Context(), newTransfer); err != nil {
 				errCh <- err
 				return
 			}
@@ -157,7 +157,7 @@ func getTransfer(s transfer.Service) http.HandlerFunc {
 		errCh := make(chan error)
 
 		go func() {
-			listTransfer, err := s.GetTransfers(id, query)
+			listTransfer, err := s.GetTransfers(r.Context(), id, query)
 
 			if err != nil {
 				errCh <- err

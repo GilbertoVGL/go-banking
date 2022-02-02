@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"context"
 	"strings"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
@@ -8,15 +9,15 @@ import (
 )
 
 type Service interface {
-	GetTransfers(uint64, ListTransferQuery) (ListTransferReponse, error)
-	DoTransfer(TransferRequest) error
+	GetTransfers(context.Context, uint64, ListTransferQuery) (ListTransferReponse, error)
+	DoTransfer(context.Context, TransferRequest) error
 }
 
 type Repository interface {
-	AddTransfer(TransferRequest) error
-	GetTransfers(uint64, ListTransferQuery) (ListTransferReponse, error)
-	GetAccountBalance(uint64) (int64, error)
-	GetAccountById(id uint64) (account.Account, error)
+	AddTransfer(context.Context, TransferRequest) error
+	GetTransfers(context.Context, uint64, ListTransferQuery) (ListTransferReponse, error)
+	GetAccountBalance(context.Context, uint64) (int64, error)
+	GetAccountById(context.Context, uint64) (account.Account, error)
 }
 
 type service struct {
@@ -27,51 +28,87 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) GetTransfers(id uint64, l ListTransferQuery) (ListTransferReponse, error) {
-	return s.r.GetTransfers(id, l)
+func (s *service) GetTransfers(ctx context.Context, id uint64, l ListTransferQuery) (ListTransferReponse, error) {
+	transferListCh := make(chan ListTransferReponse)
+	errCh := make(chan error)
+
+	go func() {
+		transferList, err := s.r.GetTransfers(ctx, id, l)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		transferListCh <- transferList
+	}()
+
+	select {
+	case transferList := <-transferListCh:
+		return transferList, nil
+	case err := <-errCh:
+		return ListTransferReponse{}, err
+	case <-ctx.Done():
+		return ListTransferReponse{}, ctx.Err()
+	}
 }
 
-func (s *service) DoTransfer(t TransferRequest) error {
-	var invalid []string
+func (s *service) DoTransfer(ctx context.Context, t TransferRequest) error {
+	transferCh := make(chan bool)
+	errCh := make(chan error)
 
-	if t.Amount == nil {
-		invalid = append(invalid, "amount")
-	}
+	go func() {
+		var invalid []string
 
-	if t.Destination == nil {
-		invalid = append(invalid, "destination")
-	}
-
-	if len(invalid) > 0 {
-		return apperrors.NewArgumentError(strings.Join(invalid, ", "))
-	}
-
-	if *t.Amount < 0 {
-		invalid = append(invalid, "amount")
-		return apperrors.NewArgumentError(strings.Join(invalid, ", "))
-	}
-
-	originBalance, err := s.r.GetAccountBalance(t.Origin)
-
-	if err != nil {
-		return err
-	}
-
-	if originBalance < *t.Amount {
-		return apperrors.NewTransferRequestError("not enough funds")
-	}
-
-	if _, err := s.r.GetAccountById(*t.Destination); err != nil {
-		if _, ok := err.(*apperrors.AccountNotFoundError); ok {
-			return apperrors.NewTransferRequestError("destination account not found", err.Error())
+		if t.Amount == nil {
+			invalid = append(invalid, "amount")
 		}
 
-		return err
-	}
+		if t.Destination == nil {
+			invalid = append(invalid, "destination")
+		}
 
-	if err := s.r.AddTransfer(t); err != nil {
-		return err
-	}
+		if len(invalid) > 0 {
+			errCh <- apperrors.NewArgumentError(strings.Join(invalid, ", "))
+		}
 
-	return nil
+		if *t.Amount < 0 {
+			invalid = append(invalid, "amount")
+			errCh <- apperrors.NewArgumentError(strings.Join(invalid, ", "))
+			return
+		}
+
+		originBalance, err := s.r.GetAccountBalance(ctx, t.Origin)
+
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		if originBalance < *t.Amount {
+			errCh <- apperrors.NewTransferRequestError("not enough funds")
+			return
+		}
+
+		if _, err := s.r.GetAccountById(ctx, *t.Destination); err != nil {
+			if _, ok := err.(*apperrors.AccountNotFoundError); ok {
+				errCh <- apperrors.NewTransferRequestError("destination account not found", err.Error())
+			}
+
+			errCh <- err
+		}
+
+		if err := s.r.AddTransfer(ctx, t); err != nil {
+			errCh <- err
+		}
+
+		transferCh <- true
+	}()
+
+	select {
+	case <-transferCh:
+		return nil
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
