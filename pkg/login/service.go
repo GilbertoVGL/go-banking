@@ -15,11 +15,11 @@ import (
 )
 
 type Repository interface {
-	GetAccountBySecretAndCPF(context.Context, LoginRequest, chan Account, chan error)
+	GetAccountBySecretAndCPF(context.Context, LoginRequest) (Account, error)
 }
 
 type Service interface {
-	LoginUser(context.Context, LoginRequest, chan LoginReponse, chan error)
+	LoginUser(context.Context, LoginRequest) (LoginReponse, error)
 }
 
 type service struct {
@@ -30,45 +30,55 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) LoginUser(ctx context.Context, loginReq LoginRequest, loginCh chan LoginReponse, errorCh chan error) {
-	if err := validateValues(loginReq); err != nil {
-		errorCh <- err
-		return
-	}
-
+func (s *service) LoginUser(ctx context.Context, loginReq LoginRequest) (LoginReponse, error) {
+	var login LoginReponse
 	accountCh := make(chan Account)
 	errCh := make(chan error)
-	loginReq.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(loginReq.Secret+os.Getenv("SALT"))))
 
-	go s.r.GetAccountBySecretAndCPF(ctx, loginReq, accountCh, errCh)
+	go func() {
+		if err := validateValues(loginReq); err != nil {
+			errCh <- err
+			return
+		}
+
+		loginReq.Secret = fmt.Sprintf("%x", sha256.Sum256([]byte(loginReq.Secret+os.Getenv("SALT"))))
+
+		account, err := s.r.GetAccountBySecretAndCPF(ctx, loginReq)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		accountCh <- account
+	}()
 
 	select {
 	case account := <-accountCh:
 		if !account.Active {
-			errorCh <- errors.New("this account is inactive")
-			return
+			return login, errors.New("this account is inactive")
 		}
-
-		at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"authorized": true,
-			"userId":     account.Id,
-			"exp":        time.Now().Add(time.Minute * 15).Unix(),
-		})
-		token, err := at.SignedString([]byte(os.Getenv("JWT_SECRET")))
+		var err error
+		login.Token, err = generateToken(account)
 
 		if err != nil {
-			errorCh <- errors.New("failed to create user token")
-			return
+			return login, errors.New("failed to create user token")
 		}
 
-		loginCh <- LoginReponse{Token: token}
-
-		return
+		return login, nil
 	case err := <-errCh:
-		errorCh <- err
+		return login, err
 	case <-ctx.Done():
-		errorCh <- ctx.Err()
+		return login, ctx.Err()
 	}
+}
+
+func generateToken(account Account) (string, error) {
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"authorized": true,
+		"userId":     account.Id,
+		"exp":        time.Now().Add(time.Minute * 15).Unix(),
+	})
+	return at.SignedString([]byte(os.Getenv("JWT_SECRET")))
 }
 
 func validateValues(l LoginRequest) error {

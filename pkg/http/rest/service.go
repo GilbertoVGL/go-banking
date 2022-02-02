@@ -59,18 +59,23 @@ func doLogin(s login.Service) http.HandlerFunc {
 
 		loginCh := make(chan login.LoginReponse)
 		errorCh := make(chan error)
-		go s.LoginUser(r.Context(), newLogin, loginCh, errorCh)
+
+		go func() {
+			login, err := s.LoginUser(r.Context(), newLogin)
+			if err != nil {
+				errorCh <- err
+				return
+			}
+			loginCh <- login
+		}()
 
 		select {
 		case loginResponse := <-loginCh:
 			respondWithJSON(w, http.StatusOK, loginResponse)
-			return
 		case err := <-errorCh:
 			respondWithError(w, http.StatusBadRequest, err)
-			return
 		case <-r.Context().Done():
 			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
-			return
 		}
 	}
 }

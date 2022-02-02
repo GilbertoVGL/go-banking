@@ -109,32 +109,30 @@ func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
 	return account, nil
 }
 
-func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest, accountCh chan login.Account, errorCh chan error) {
+func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest) (login.Account, error) {
+	var account login.Account
 	select {
 	default:
 		conn, err := r.getConn()
 
 		if err != nil {
-			errorCh <- err
-			return
+			return account, err
 		}
 
 		defer conn.Release()
-		var account login.Account
 		query := fmt.Sprintf("select id, active from accounts where cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
 
 		if err := conn.QueryRow(ctx, query).Scan(&account.Id, &account.Active); err != nil {
 			if errors.Is(pgx.ErrNoRows, err) {
-				errorCh <- apperrors.NewDatabaseError("invalid cpf or password")
-				return
+				return account, apperrors.NewDatabaseError("invalid cpf or password")
 			}
 
-			errorCh <- err
+			return account, err
 		}
 
-		accountCh <- account
+		return account, nil
 	case <-ctx.Done():
-		errorCh <- ctx.Err()
+		return account, ctx.Err()
 	}
 }
 
