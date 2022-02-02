@@ -24,7 +24,7 @@ var mockListAccount func(context.Context, account.ListAccountQuery) (account.Lis
 var mockAddAccount func(context.Context, account.NewAccountRequest) error
 var mockLogin func(context.Context, login.LoginRequest) (login.Account, error)
 var mockGetAccountBalance func(context.Context, uint64) (account.BalanceResponse, error)
-var mockGetTransfer func(context.Context, uint64, transfer.ListTransferQuery) (transfer.ListTransferReponse, error)
+var mockGetTransfer func(context.Context, uint64, transfer.ListTransferQuery) (transfer.ListTransferResponse, error)
 
 func (mr *mockRepository) ListAccount(ctx context.Context, params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	return mockListAccount(ctx, params)
@@ -38,7 +38,7 @@ func (mr *mockRepository) GetAccountBySecretAndCPF(ctx context.Context, l login.
 func (mr *mockRepository) GetAccountBalance(ctx context.Context, a uint64) (account.BalanceResponse, error) {
 	return mockGetAccountBalance(ctx, a)
 }
-func (mr *mockRepository) GetTransfers(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+func (mr *mockRepository) GetTransfers(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferResponse, error) {
 	return mockGetTransfer(ctx, a, l)
 }
 
@@ -65,7 +65,7 @@ func (ms *mockService) LoginUser(ctx context.Context, l login.LoginRequest) (log
 	account, err := ms.r.GetAccountBySecretAndCPF(ctx, l)
 	return login.LoginReponse{Token: account.Cpf}, err
 }
-func (ms *mockService) GetTransfers(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+func (ms *mockService) GetTransfers(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferResponse, error) {
 	return ms.r.GetTransfers(ctx, a, l)
 }
 func (ms *mockService) DoTransfer(ctx context.Context, t transfer.TransferRequest) error {
@@ -187,9 +187,9 @@ func TestGetTransfer(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockGetTransfer = func(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+		mockGetTransfer = func(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferResponse, error) {
 			transfers := []transfer.ListTransfer{}
-			return transfer.ListTransferReponse{
+			return transfer.ListTransferResponse{
 				Total: 0,
 				Page:  0,
 				Data:  transfers,

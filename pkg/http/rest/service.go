@@ -153,7 +153,7 @@ func getTransfer(s transfer.Service) http.HandlerFunc {
 			return
 		}
 
-		listTransferCh := make(chan transfer.ListTransferReponse)
+		listTransferCh := make(chan transfer.ListTransferResponse)
 		errCh := make(chan error)
 
 		go func() {

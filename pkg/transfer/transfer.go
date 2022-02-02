@@ -13,7 +13,7 @@ type ListTransferQuery struct {
 	Page     int
 }
 
-type ListTransferReponse struct {
+type ListTransferResponse struct {
 	Total int64          `json:"total"`
 	Page  int64          `json:"page"`
 	Data  []ListTransfer `json:"data"`

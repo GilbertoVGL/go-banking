@@ -247,8 +247,8 @@ func (r *postgresDB) GetAccountBalance(ctx context.Context, id uint64) (int64, e
 	}
 }
 
-func (r *postgresDB) GetTransfers(ctx context.Context, id uint64, params transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
-	var transferResponse transfer.ListTransferReponse
+func (r *postgresDB) GetTransfers(ctx context.Context, id uint64, params transfer.ListTransferQuery) (transfer.ListTransferResponse, error) {
+	var transferResponse transfer.ListTransferResponse
 
 	select {
 	default:

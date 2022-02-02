@@ -9,13 +9,13 @@ import (
 )
 
 type Service interface {
-	GetTransfers(context.Context, uint64, ListTransferQuery) (ListTransferReponse, error)
+	GetTransfers(context.Context, uint64, ListTransferQuery) (ListTransferResponse, error)
 	DoTransfer(context.Context, TransferRequest) error
 }
 
 type Repository interface {
 	AddTransfer(context.Context, TransferRequest) error
-	GetTransfers(context.Context, uint64, ListTransferQuery) (ListTransferReponse, error)
+	GetTransfers(context.Context, uint64, ListTransferQuery) (ListTransferResponse, error)
 	GetAccountBalance(context.Context, uint64) (int64, error)
 	GetAccountById(context.Context, uint64) (account.Account, error)
 }
@@ -28,8 +28,8 @@ func New(r Repository) *service {
 	return &service{r}
 }
 
-func (s *service) GetTransfers(ctx context.Context, id uint64, l ListTransferQuery) (ListTransferReponse, error) {
-	transferListCh := make(chan ListTransferReponse)
+func (s *service) GetTransfers(ctx context.Context, id uint64, l ListTransferQuery) (ListTransferResponse, error) {
+	transferListCh := make(chan ListTransferResponse)
 	errCh := make(chan error)
 
 	go func() {
@@ -45,9 +45,9 @@ func (s *service) GetTransfers(ctx context.Context, id uint64, l ListTransferQue
 	case transferList := <-transferListCh:
 		return transferList, nil
 	case err := <-errCh:
-		return ListTransferReponse{}, err
+		return ListTransferResponse{}, err
 	case <-ctx.Done():
-		return ListTransferReponse{}, ctx.Err()
+		return ListTransferResponse{}, ctx.Err()
 	}
 }
 
