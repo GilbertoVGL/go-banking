@@ -99,12 +99,13 @@ func TestDoLogin(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		expected := strings.Trim(`{"token":""}`, " \r\n")
-		body := strings.Trim(rr.Body.String(), " \r\n")
+		expected := login.Account{}
+		var result login.Account
+		json.NewDecoder(rr.Body).Decode(&result)
 
-		if body != expected {
+		if result != expected {
 			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-				body, expected)
+				result, expected)
 		}
 	})
 
@@ -238,11 +239,11 @@ func TestListAccounts(t *testing.T) {
 		}
 
 		expected := strings.Trim(`{"total":0,"page":0,"data":[]}`, " \r\n")
-		body := strings.Trim(rr.Body.String(), " \r\n")
+		result := strings.Trim(rr.Body.String(), " \r\n")
 
-		if body != expected {
+		if result != expected {
 			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-				body, expected)
+				result, expected)
 		}
 	})
 
@@ -293,8 +294,8 @@ func TestListAccounts(t *testing.T) {
 				status, http.StatusBadRequest)
 		}
 
-		expected := strings.Trim(`{"error":"unable to access database"}`, " TestListAccountsIsOk\r\n")
-		body := strings.Trim(rr.Body.String(), " \r\n")
+		expected := strings.Trim(`{"error":"unable to access database"}`, "\r\n")
+		body := strings.Trim(rr.Body.String(), "\r\n")
 
 		if body != expected {
 			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
@@ -407,12 +408,13 @@ func TestGetBalance(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		expected := strings.Trim(`{"balance":0}`, " \r\n")
-		body := strings.Trim(rr.Body.String(), " \r\n")
+		expected := account.BalanceResponse{}
+		var result account.BalanceResponse
+		json.NewDecoder(rr.Body).Decode(&result)
 
-		if body != expected {
+		if result != expected {
 			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-				body, expected)
+				result, expected)
 		}
 	})
 }
@@ -447,12 +449,13 @@ func TestGetSelfBalance(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		expected := strings.Trim(`{"balance":0}`, " \r\n")
-		body := strings.Trim(rr.Body.String(), " \r\n")
+		expected := account.BalanceResponse{}
+		var result account.BalanceResponse
+		json.NewDecoder(rr.Body).Decode(&result)
 
-		if body != expected {
+		if result != expected {
 			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-				body, expected)
+				result, expected)
 		}
 	})
 }
