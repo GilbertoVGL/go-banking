@@ -20,49 +20,49 @@ import (
 
 type mockRepository struct{}
 
-var mockListAccount func() (account.ListAccountsReponse, error)
-var mockAddAccount func(account.NewAccountRequest) error
+var mockListAccount func(context.Context, account.ListAccountQuery) (account.ListAccountsReponse, error)
+var mockAddAccount func(context.Context, account.NewAccountRequest) error
 var mockLogin func(context.Context, login.LoginRequest) (login.Account, error)
-var mockGetAccountBalance func(uint64) (account.BalanceResponse, error)
-var mockGetTransfer func(uint64, transfer.ListTransferQuery) (transfer.ListTransferReponse, error)
+var mockGetAccountBalance func(context.Context, uint64) (account.BalanceResponse, error)
+var mockGetTransfer func(context.Context, uint64, transfer.ListTransferQuery) (transfer.ListTransferReponse, error)
 
-func (mr *mockRepository) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {
-	return mockListAccount()
+func (mr *mockRepository) ListAccount(ctx context.Context, params account.ListAccountQuery) (account.ListAccountsReponse, error) {
+	return mockListAccount(ctx, params)
 }
-func (mr *mockRepository) AddAccount(a account.NewAccountRequest) error {
-	return mockAddAccount(a)
+func (mr *mockRepository) AddAccount(ctx context.Context, a account.NewAccountRequest) error {
+	return mockAddAccount(ctx, a)
 }
 func (mr *mockRepository) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest) (login.Account, error) {
 	return mockLogin(ctx, l)
 }
-func (mr *mockRepository) GetAccountBalance(a uint64) (account.BalanceResponse, error) {
-	return mockGetAccountBalance(a)
+func (mr *mockRepository) GetAccountBalance(ctx context.Context, a uint64) (account.BalanceResponse, error) {
+	return mockGetAccountBalance(ctx, a)
 }
-func (mr *mockRepository) GetTransfers(a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
-	return mockGetTransfer(a, l)
+func (mr *mockRepository) GetTransfers(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+	return mockGetTransfer(ctx, a, l)
 }
 
 type mockService struct {
 	r *mockRepository
 }
 
-func (ms *mockService) List(a account.ListAccountQuery) (account.ListAccountsReponse, error) {
-	return ms.r.ListAccount(a)
+func (ms *mockService) List(ctx context.Context, a account.ListAccountQuery) (account.ListAccountsReponse, error) {
+	return ms.r.ListAccount(ctx, a)
 }
-func (ms *mockService) NewAccount(a account.NewAccountRequest) error {
-	return ms.r.AddAccount(a)
+func (ms *mockService) NewAccount(ctx context.Context, a account.NewAccountRequest) error {
+	return ms.r.AddAccount(ctx, a)
 }
-func (ms *mockService) GetBalance(a uint64) (account.BalanceResponse, error) {
-	return ms.r.GetAccountBalance(a)
+func (ms *mockService) GetBalance(ctx context.Context, a uint64) (account.BalanceResponse, error) {
+	return ms.r.GetAccountBalance(ctx, a)
 }
 func (ms *mockService) LoginUser(ctx context.Context, l login.LoginRequest) (login.LoginReponse, error) {
 	account, err := ms.r.GetAccountBySecretAndCPF(ctx, l)
 	return login.LoginReponse{Token: account.Cpf}, err
 }
-func (ms *mockService) GetTransfers(a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
-	return ms.r.GetTransfers(a, l)
+func (ms *mockService) GetTransfers(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+	return ms.r.GetTransfers(ctx, a, l)
 }
-func (ms *mockService) DoTransfer(transfer.TransferRequest) error {
+func (ms *mockService) DoTransfer(ctx context.Context, t transfer.TransferRequest) error {
 	return nil
 }
 
@@ -166,10 +166,10 @@ func TestDoTransfer(t *testing.T) {
 	})
 }
 
-func TestGetTransferIsOk(t *testing.T) {
+func TestGetTransfer(t *testing.T) {
 	path := url.URL{
 		Path:     "/transfers",
-		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode(),
+		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"1"}}).Encode(),
 	}
 	r := &mockRepository{}
 	s := mockService{r}
@@ -180,7 +180,7 @@ func TestGetTransferIsOk(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockGetTransfer = func(a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+		mockGetTransfer = func(ctx context.Context, a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
 			transfers := []transfer.ListTransfer{}
 			return transfer.ListTransferReponse{
 				Total: 0,
@@ -212,13 +212,13 @@ func TestListAccounts(t *testing.T) {
 	s := mockService{r}
 
 	t.Run("listAccounts is OK", func(t *testing.T) {
-		path.RawQuery = (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode()
+		path.RawQuery = (&url.Values{"pageSize": []string{"10"}, "page": []string{"1"}}).Encode()
 		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		mockListAccount = func() (account.ListAccountsReponse, error) {
+		mockListAccount = func(ctx context.Context, q account.ListAccountQuery) (account.ListAccountsReponse, error) {
 			accounts := []account.ListAccount{}
 			return account.ListAccountsReponse{
 				Total: 0,
@@ -263,7 +263,7 @@ func TestListAccounts(t *testing.T) {
 				status, http.StatusOK)
 		}
 
-		expected := strings.Trim(`{"error":"invalid query params: pageSize, page"}`, " \r\n")
+		expected := strings.Trim(`{"error":"invalid argument: invalid query params: pageSize, page"}`, " \r\n")
 		body := strings.Trim(rr.Body.String(), " \r\n")
 
 		if body != expected {
@@ -279,7 +279,7 @@ func TestListAccounts(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockListAccount = func() (account.ListAccountsReponse, error) {
+		mockListAccount = func(ctx context.Context, q account.ListAccountQuery) (account.ListAccountsReponse, error) {
 			return account.ListAccountsReponse{}, errors.New("unable to access database")
 		}
 
@@ -288,9 +288,9 @@ func TestListAccounts(t *testing.T) {
 
 		handler.ServeHTTP(rr, req)
 
-		if status := rr.Code; status != http.StatusInternalServerError {
+		if status := rr.Code; status != http.StatusBadRequest {
 			t.Errorf("handler returned wrong status code: got %v want %v",
-				status, http.StatusOK)
+				status, http.StatusBadRequest)
 		}
 
 		expected := strings.Trim(`{"error":"unable to access database"}`, " TestListAccountsIsOk\r\n")
@@ -323,7 +323,7 @@ func TestNewAccount(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockAddAccount = func(a account.NewAccountRequest) error {
+		mockAddAccount = func(ctx context.Context, a account.NewAccountRequest) error {
 			return nil
 		}
 
@@ -356,7 +356,7 @@ func TestNewAccount(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockAddAccount = func(a account.NewAccountRequest) error {
+		mockAddAccount = func(ctx context.Context, a account.NewAccountRequest) error {
 			return errors.New("invalid input: cpf")
 		}
 
@@ -393,7 +393,7 @@ func TestGetBalance(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
+		mockGetAccountBalance = func(ctx context.Context, i uint64) (account.BalanceResponse, error) {
 			return account.BalanceResponse{Balance: 0}, nil
 		}
 
@@ -417,7 +417,7 @@ func TestGetBalance(t *testing.T) {
 	})
 }
 
-func TestGetSelfBalanceIsOk(t *testing.T) {
+func TestGetSelfBalance(t *testing.T) {
 	path := url.URL{
 		Path: "/accounts/balance",
 	}
@@ -430,7 +430,7 @@ func TestGetSelfBalanceIsOk(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
+		mockGetAccountBalance = func(ctx context.Context, i uint64) (account.BalanceResponse, error) {
 			return account.BalanceResponse{Balance: 0}, nil
 		}
 
