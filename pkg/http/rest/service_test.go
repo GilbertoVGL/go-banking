@@ -22,7 +22,7 @@ type mockRepository struct{}
 
 var mockListAccount func() (account.ListAccountsReponse, error)
 var mockAddAccount func(account.NewAccountRequest) error
-var mockLogin func(login.LoginRequest) error
+var mockLogin func(context.Context, login.LoginRequest) (login.Account, error)
 var mockGetAccountBalance func(uint64) (account.BalanceResponse, error)
 var mockGetTransfer func(uint64, transfer.ListTransferQuery) (transfer.ListTransferReponse, error)
 
@@ -32,8 +32,8 @@ func (mr *mockRepository) ListAccount(params account.ListAccountQuery) (account.
 func (mr *mockRepository) AddAccount(a account.NewAccountRequest) error {
 	return mockAddAccount(a)
 }
-func (mr *mockRepository) GetAccountBySecretAndCPF(l login.LoginRequest) error {
-	return mockLogin(l)
+func (mr *mockRepository) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest) (login.Account, error) {
+	return mockLogin(ctx, l)
 }
 func (mr *mockRepository) GetAccountBalance(a uint64) (account.BalanceResponse, error) {
 	return mockGetAccountBalance(a)
@@ -55,8 +55,9 @@ func (ms *mockService) NewAccount(a account.NewAccountRequest) error {
 func (ms *mockService) GetBalance(a uint64) (account.BalanceResponse, error) {
 	return ms.r.GetAccountBalance(a)
 }
-func (ms *mockService) LoginUser(l login.LoginRequest) (login.LoginReponse, error) {
-	return login.LoginReponse{}, ms.r.GetAccountBySecretAndCPF(l)
+func (ms *mockService) LoginUser(ctx context.Context, l login.LoginRequest) (login.LoginReponse, error) {
+	account, err := ms.r.GetAccountBySecretAndCPF(ctx, l)
+	return login.LoginReponse{Token: account.Cpf}, err
 }
 func (ms *mockService) GetTransfers(a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
 	return ms.r.GetTransfers(a, l)
@@ -65,7 +66,7 @@ func (ms *mockService) DoTransfer(transfer.TransferRequest) error {
 	return nil
 }
 
-func TestDoLoginIsOk(t *testing.T) {
+func TestDoLogin(t *testing.T) {
 	path := url.URL{
 		Path: "/login",
 	}
@@ -73,75 +74,63 @@ func TestDoLoginIsOk(t *testing.T) {
 		Cpf:    "472.081.640-10",
 		Secret: "secret_pass",
 	}
+	r := &mockRepository{}
+	s := mockService{r}
 	jsonPayload, _ := json.Marshal(l)
 	payload := bytes.NewBuffer(jsonPayload)
 
-	req, err := http.NewRequest(http.MethodPost, path.String(), payload)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("doLogin is OK", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, path.String(), payload)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	mockLogin = func(l login.LoginRequest) error {
-		return nil
-	}
+		mockLogin = func(ctx context.Context, l login.LoginRequest) (login.Account, error) {
+			return login.Account{}, nil
+		}
 
-	r := &mockRepository{}
-	s := mockService{r}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(doLogin(&s))
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(doLogin(&s))
+		handler.ServeHTTP(rr, req)
 
-	handler.ServeHTTP(rr, req)
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+		expected := strings.Trim(`{"token":""}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
 
-	expected := strings.Trim(`{"token":""}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
 
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
+	t.Run("doLogin service Error", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, path.String(), payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mockLogin = func(ctx context.Context, l login.LoginRequest) (login.Account, error) {
+			return login.Account{}, errors.New("bad_test")
+		}
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(doLogin(&s))
+
+		handler.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusBadRequest {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+	})
 }
 
-func TestDoLoginServiceError(t *testing.T) {
-	path := url.URL{
-		Path: "/login",
-	}
-	l := login.LoginRequest{
-		Cpf:    "472.081.640-10",
-		Secret: "secret_pass",
-	}
-	jsonPayload, _ := json.Marshal(l)
-	payload := bytes.NewBuffer(jsonPayload)
-
-	req, err := http.NewRequest(http.MethodPost, path.String(), payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockLogin = func(l login.LoginRequest) error {
-		return errors.New("bad_test")
-	}
-
-	r := &mockRepository{}
-	s := mockService{r}
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(doLogin(&s))
-
-	handler.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-}
-
-func TestDoTransferIsOk(t *testing.T) {
+func TestDoTransfer(t *testing.T) {
 	path := url.URL{
 		Path: "/transfers",
 	}
@@ -151,29 +140,30 @@ func TestDoTransferIsOk(t *testing.T) {
 		Destination: &d,
 		Amount:      &a,
 	}
+	r := &mockRepository{}
+	s := mockService{r}
 	jsonPayload, _ := json.Marshal(q)
 	payload := bytes.NewBuffer(jsonPayload)
 
-	req, err := http.NewRequest(http.MethodPost, path.String(), payload)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("doTransfer is OK", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, path.String(), payload)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	r := &mockRepository{}
-	s := mockService{r}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(doTransfer(&s))
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
+		ro := req.Clone(ctx)
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(doTransfer(&s))
-	ctx := req.Context()
-	ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
-	ro := req.Clone(ctx)
+		handler.ServeHTTP(rr, ro)
 
-	handler.ServeHTTP(rr, ro)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+		if status := rr.Code; status != http.StatusCreated {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+	})
 }
 
 func TestGetTransferIsOk(t *testing.T) {
@@ -181,151 +171,139 @@ func TestGetTransferIsOk(t *testing.T) {
 		Path:     "/transfers",
 		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode(),
 	}
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockGetTransfer = func(a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
-		transfers := []transfer.ListTransfer{}
-		return transfer.ListTransferReponse{
-			Total: 0,
-			Page:  0,
-			Data:  transfers,
-		}, nil
-	}
-
 	r := &mockRepository{}
 	s := mockService{r}
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(getTransfer(&s))
-	ctx := req.Context()
-	ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
-	ro := req.Clone(ctx)
+	t.Run("getTransfer is OK", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	handler.ServeHTTP(rr, ro)
+		mockGetTransfer = func(a uint64, l transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+			transfers := []transfer.ListTransfer{}
+			return transfer.ListTransferReponse{
+				Total: 0,
+				Page:  0,
+				Data:  transfers,
+			}, nil
+		}
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(getTransfer(&s))
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
+		ro := req.Clone(ctx)
+
+		handler.ServeHTTP(rr, ro)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+	})
 }
 
-func TestListAccountsIsOk(t *testing.T) {
+func TestListAccounts(t *testing.T) {
 	path := url.URL{
-		Path:     "/accounts",
-		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode(),
+		Path: "/accounts",
 	}
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockListAccount = func() (account.ListAccountsReponse, error) {
-		accounts := []account.ListAccount{}
-		return account.ListAccountsReponse{
-			Total: 0,
-			Page:  0,
-			Data:  accounts,
-		}, nil
-	}
-
 	r := &mockRepository{}
 	s := mockService{r}
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(listAccounts(&s))
+	t.Run("listAccounts is OK", func(t *testing.T) {
+		path.RawQuery = (&url.Values{"pageSize": []string{"10"}, "page": []string{"0"}}).Encode()
+		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	handler.ServeHTTP(rr, req)
+		mockListAccount = func() (account.ListAccountsReponse, error) {
+			accounts := []account.ListAccount{}
+			return account.ListAccountsReponse{
+				Total: 0,
+				Page:  0,
+				Data:  accounts,
+			}, nil
+		}
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(listAccounts(&s))
 
-	expected := strings.Trim(`{"total":0,"page":0,"data":[]}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
+		handler.ServeHTTP(rr, req)
 
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"total":0,"page":0,"data":[]}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
+
+	t.Run("listAccounts invalid query", func(t *testing.T) {
+		path.RawQuery = (&url.Values{"pageSize": []string{"bad"}, "page": []string{"params"}}).Encode()
+		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(listAccounts(&s))
+
+		handler.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusBadRequest {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"error":"invalid query params: pageSize, page"}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
+
+	t.Run("listAccounts service error", func(t *testing.T) {
+		path.RawQuery = (&url.Values{"pageSize": []string{"10"}, "page": []string{"10"}}).Encode()
+		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mockListAccount = func() (account.ListAccountsReponse, error) {
+			return account.ListAccountsReponse{}, errors.New("unable to access database")
+		}
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(listAccounts(&s))
+
+		handler.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusInternalServerError {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"error":"unable to access database"}`, " TestListAccountsIsOk\r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
 }
 
-func TestListAccountsInvalidQuery(t *testing.T) {
-	path := url.URL{
-		Path:     "/accounts",
-		RawQuery: (&url.Values{"pageSize": []string{"bad"}, "page": []string{"params"}}).Encode(),
-	}
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	r := &mockRepository{}
-	s := mockService{r}
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(listAccounts(&s))
-
-	handler.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-
-	expected := strings.Trim(`{"error":"invalid query params: pageSize, page"}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
-
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
-}
-
-func TestListAccountsServiceReturnError(t *testing.T) {
-	path := url.URL{
-		Path:     "/accounts",
-		RawQuery: (&url.Values{"pageSize": []string{"10"}, "page": []string{"10"}}).Encode(),
-	}
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockListAccount = func() (account.ListAccountsReponse, error) {
-		return account.ListAccountsReponse{}, errors.New("unable to access database")
-	}
-
-	r := &mockRepository{}
-	s := mockService{r}
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(listAccounts(&s))
-
-	handler.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusInternalServerError {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-
-	expected := strings.Trim(`{"error":"unable to access database"}`, " TestListAccountsIsOk\r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
-
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
-}
-
-func TestNewAccountIsOk(t *testing.T) {
+func TestNewAccount(t *testing.T) {
 	path := url.URL{
 		Path: "/accounts",
 	}
@@ -334,152 +312,147 @@ func TestNewAccountIsOk(t *testing.T) {
 		Cpf:    "610.781.580-53",
 		Secret: "secret_pass",
 	}
-	jsonPayload, _ := json.Marshal(a)
-	payload := bytes.NewBuffer(jsonPayload)
-
-	req, err := http.NewRequest(http.MethodPost, path.String(), payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockAddAccount = func(a account.NewAccountRequest) error {
-		return nil
-	}
-
 	r := &mockRepository{}
 	s := mockService{r}
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(newAccount(&s))
+	t.Run("newAccount is OK", func(t *testing.T) {
+		jsonPayload, _ := json.Marshal(a)
+		payload := bytes.NewBuffer(jsonPayload)
+		req, err := http.NewRequest(http.MethodPost, path.String(), payload)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	handler.ServeHTTP(rr, req)
+		mockAddAccount = func(a account.NewAccountRequest) error {
+			return nil
+		}
 
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(newAccount(&s))
 
-	expected := strings.Trim(`{"msg":"account created"}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
+		handler.ServeHTTP(rr, req)
 
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
+		if status := rr.Code; status != http.StatusCreated {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"msg":"account created"}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
+
+	t.Run("newAccount service error", func(t *testing.T) {
+		a.Cpf = "999.666.999-66"
+		jsonPayload, _ := json.Marshal(a)
+		payload := bytes.NewBuffer(jsonPayload)
+
+		req, err := http.NewRequest(http.MethodPost, path.String(), payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mockAddAccount = func(a account.NewAccountRequest) error {
+			return errors.New("invalid input: cpf")
+		}
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(newAccount(&s))
+
+		handler.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusBadRequest {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"error":"invalid input: cpf"}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
 }
 
-func TestNewAccountServiceError(t *testing.T) {
-	path := url.URL{
-		Path: "/accounts",
-	}
-	a := account.NewAccountRequest{
-		Name:   "Mané",
-		Cpf:    "999.666.999-66",
-		Secret: "secret_pass",
-	}
-	jsonPayload, _ := json.Marshal(a)
-	payload := bytes.NewBuffer(jsonPayload)
-
-	req, err := http.NewRequest(http.MethodPost, path.String(), payload)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockAddAccount = func(a account.NewAccountRequest) error {
-		return errors.New("invalid input: cpf")
-	}
-
-	r := &mockRepository{}
-	s := mockService{r}
-
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(newAccount(&s))
-
-	handler.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-
-	expected := strings.Trim(`{"error":"invalid input: cpf"}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
-
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
-}
-
-func TestGetBalanceIsOk(t *testing.T) {
+func TestGetBalance(t *testing.T) {
 	path := url.URL{
 		Path: "/accounts/2/balance",
 	}
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
-		return account.BalanceResponse{Balance: 0}, nil
-	}
-
 	r := &mockRepository{}
 	s := mockService{r}
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/accounts/{id}/balance", getBalance(&s))
-	router.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+	t.Run("getBalance is OK", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	expected := strings.Trim(`{"balance":0}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
+		mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
+			return account.BalanceResponse{Balance: 0}, nil
+		}
 
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
+		rr := httptest.NewRecorder()
+		router := mux.NewRouter()
+		router.HandleFunc("/accounts/{id}/balance", getBalance(&s))
+		router.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"balance":0}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
 }
 
 func TestGetSelfBalanceIsOk(t *testing.T) {
 	path := url.URL{
 		Path: "/accounts/balance",
 	}
-
-	req, err := http.NewRequest(http.MethodGet, path.String(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
-		return account.BalanceResponse{Balance: 0}, nil
-	}
-
 	r := &mockRepository{}
 	s := mockService{r}
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(getSelfBalance(&s))
-	ctx := req.Context()
-	ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
-	ro := req.Clone(ctx)
 
-	handler.ServeHTTP(rr, ro)
+	t.Run("getSelfBalance is OK", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
+		mockGetAccountBalance = func(uint64) (account.BalanceResponse, error) {
+			return account.BalanceResponse{Balance: 0}, nil
+		}
 
-	expected := strings.Trim(`{"balance":0}`, " \r\n")
-	body := strings.Trim(rr.Body.String(), " \r\n")
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(getSelfBalance(&s))
+		ctx := req.Context()
+		ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
+		ro := req.Clone(ctx)
 
-	if body != expected {
-		t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
-			body, expected)
-	}
+		handler.ServeHTTP(rr, ro)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v",
+				status, http.StatusOK)
+		}
+
+		expected := strings.Trim(`{"balance":0}`, " \r\n")
+		body := strings.Trim(rr.Body.String(), " \r\n")
+
+		if body != expected {
+			t.Errorf("handler returned unexpected body: \ngot \n\t%v\n want \n\t%v",
+				body, expected)
+		}
+	})
 }
