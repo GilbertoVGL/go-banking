@@ -86,27 +86,32 @@ func (r *postgresDB) Close() {
 	r.db.Close()
 }
 
-func (r *postgresDB) GetAccountById(id uint64) (account.Account, error) {
+func (r *postgresDB) GetAccountById(ctx context.Context, id uint64) (account.Account, error) {
 	var account account.Account
 
-	conn, err := r.getConn()
+	select {
+	default:
+		conn, err := r.getConn()
 
-	if err != nil {
-		return account, err
-	}
-
-	defer conn.Release()
-
-	query := fmt.Sprintf("select id, name, cpf, balance, active from accounts where id = '%d';", id)
-
-	if err := conn.QueryRow(context.Background(), query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
-		if errors.Is(pgx.ErrNoRows, err) {
-			return account, apperrors.NewAccountNotFoundError("account not found")
+		if err != nil {
+			return account, err
 		}
-		return account, apperrors.NewDatabaseError(err.Error())
-	}
 
-	return account, nil
+		defer conn.Release()
+
+		query := fmt.Sprintf("select id, name, cpf, balance, active from accounts where id = '%d';", id)
+
+		if err := conn.QueryRow(ctx, query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
+			if errors.Is(pgx.ErrNoRows, err) {
+				return account, apperrors.NewAccountNotFoundError("account not found")
+			}
+			return account, apperrors.NewDatabaseError(err.Error())
+		}
+
+		return account, nil
+	case <-ctx.Done():
+		return account, ctx.Err()
+	}
 }
 
 func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest) (login.Account, error) {
@@ -136,108 +141,126 @@ func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.Login
 	}
 }
 
-func (r *postgresDB) ListAccount(params account.ListAccountQuery) (account.ListAccountsReponse, error) {
+func (r *postgresDB) ListAccount(ctx context.Context, params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	var accountsResponse account.ListAccountsReponse
-	accounts := []account.ListAccount{}
-	var count int64
 
-	conn, err := r.getConn()
+	select {
+	default:
+		conn, err := r.getConn()
 
-	if err != nil {
-		return accountsResponse, err
-	}
+		if err != nil {
+			return accountsResponse, err
+		}
 
-	defer conn.Release()
+		defer conn.Release()
 
-	query := fmt.Sprintf(`select 
-							id, 
-							name, 
-							cpf, 
-							balance 
-						from 
-							accounts 
-						order by id 
-						limit %d 
-						offset %d;`, params.PageSize, (params.PageSize * params.Page))
-	rows, err := conn.Query(context.Background(), query)
+		query := fmt.Sprintf(`select 
+								id, 
+								name, 
+								cpf, 
+								balance 
+							from 
+								accounts 
+							order by id 
+							limit %d 
+							offset %d;`, params.PageSize, (params.PageSize * params.Page))
+		rows, err := conn.Query(ctx, query)
 
-	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
-		return accountsResponse, apperrors.NewDatabaseError(err.Error())
-	}
-
-	for rows.Next() {
-		var account account.ListAccount
-
-		if err := rows.Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance); err != nil {
+		if err != nil && !errors.Is(pgx.ErrNoRows, err) {
 			return accountsResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
-		accounts = append(accounts, account)
+		accounts := []account.ListAccount{}
+
+		for rows.Next() {
+			var account account.ListAccount
+
+			if err := rows.Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance); err != nil {
+				return accountsResponse, apperrors.NewDatabaseError(err.Error())
+			}
+
+			accounts = append(accounts, account)
+		}
+
+		var count int64
+		countQuery := fmt.Sprintf("select count(*) from accounts;")
+
+		if err := conn.QueryRow(ctx, countQuery).Scan(&count); err != nil {
+			return accountsResponse, apperrors.NewDatabaseError(err.Error())
+		}
+
+		accountsResponse.Data = accounts
+		accountsResponse.Total = count
+		accountsResponse.Page = int64(params.Page + 1)
+
+		return accountsResponse, nil
+	case <-ctx.Done():
+		return accountsResponse, ctx.Err()
 	}
-
-	countQuery := fmt.Sprintf("select count(*) from accounts;")
-
-	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
-		return accountsResponse, apperrors.NewDatabaseError(err.Error())
-	}
-
-	accountsResponse.Data = accounts
-	accountsResponse.Total = count
-	accountsResponse.Page = int64(params.Page + 1)
-
-	return accountsResponse, nil
 }
 
-func (r *postgresDB) AddAccount(a account.NewAccountRequest) error {
-	conn, err := r.getConn()
+func (r *postgresDB) AddAccount(ctx context.Context, a account.NewAccountRequest) error {
+	select {
+	default:
+		conn, err := r.getConn()
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		defer conn.Release()
+
+		query := fmt.Sprintf("insert into accounts (name, cpf, balance, secret) values ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
+		_, err = conn.Exec(ctx, query)
+
+		if err != nil {
+			return apperrors.NewDatabaseError(err.Error())
+		}
+
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
-	defer conn.Release()
-
-	query := fmt.Sprintf("insert into accounts (name, cpf, balance, secret) values ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
-	_, err = conn.Exec(context.Background(), query)
-
-	if err != nil {
-		return apperrors.NewDatabaseError(err.Error())
-	}
-
-	return nil
 }
 
-func (r *postgresDB) GetAccountBalance(id uint64) (int64, error) {
+func (r *postgresDB) GetAccountBalance(ctx context.Context, id uint64) (int64, error) {
 	var balance int64
-	conn, err := r.getConn()
 
-	if err != nil {
-		return balance, err
+	select {
+	default:
+		conn, err := r.getConn()
+
+		if err != nil {
+			return balance, err
+		}
+
+		defer conn.Release()
+
+		query := fmt.Sprintf("select balance from accounts where id = %d", id)
+		if err := conn.QueryRow(ctx, query).Scan(&balance); err != nil {
+			return balance, apperrors.NewDatabaseError(err.Error())
+		}
+
+		return balance, nil
+	case <-ctx.Done():
+		return balance, ctx.Err()
 	}
-
-	defer conn.Release()
-
-	query := fmt.Sprintf("select balance from accounts where id = %d", id)
-	if err := conn.QueryRow(context.Background(), query).Scan(&balance); err != nil {
-		return balance, apperrors.NewDatabaseError(err.Error())
-	}
-
-	return balance, nil
 }
 
-func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
+func (r *postgresDB) GetTransfers(ctx context.Context, id uint64, params transfer.ListTransferQuery) (transfer.ListTransferReponse, error) {
 	var transferResponse transfer.ListTransferReponse
-	accounts := []transfer.ListTransfer{}
-	var count int64
-	conn, err := r.getConn()
 
-	if err != nil {
-		return transferResponse, err
-	}
+	select {
+	default:
+		conn, err := r.getConn()
 
-	defer conn.Release()
+		if err != nil {
+			return transferResponse, err
+		}
 
-	query := fmt.Sprintf(`select 
+		defer conn.Release()
+
+		query := fmt.Sprintf(`select 
 							tr.amount,
 							tr.created_at,
 							oa.name,
@@ -256,28 +279,31 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 						order by tr.id 
 						limit %d 
 						offset %d;`, id, id, params.PageSize, (params.PageSize * params.Page))
-	rows, err := conn.Query(context.Background(), query)
+		rows, err := conn.Query(ctx, query)
 
-	if err != nil && !errors.Is(pgx.ErrNoRows, err) {
-		return transferResponse, apperrors.NewDatabaseError(err.Error())
-	}
-
-	for rows.Next() {
-		var transfer transfer.ListTransfer
-
-		if err := rows.Scan(&transfer.Amount, &transfer.CreatedAt, &transfer.OriginName, &transfer.OriginCpf, &transfer.DestinationName, &transfer.DestinationCpf); err != nil {
-
+		if err != nil && !errors.Is(pgx.ErrNoRows, err) {
 			return transferResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
-		accounts = append(accounts, transfer)
-	}
+		accounts := []transfer.ListTransfer{}
 
-	if err != nil {
-		return transferResponse, apperrors.NewDatabaseError(err.Error())
-	}
+		for rows.Next() {
+			var transfer transfer.ListTransfer
 
-	countQuery := fmt.Sprintf(`select 
+			if err := rows.Scan(&transfer.Amount, &transfer.CreatedAt, &transfer.OriginName, &transfer.OriginCpf, &transfer.DestinationName, &transfer.DestinationCpf); err != nil {
+
+				return transferResponse, apperrors.NewDatabaseError(err.Error())
+			}
+
+			accounts = append(accounts, transfer)
+		}
+
+		if err != nil {
+			return transferResponse, apperrors.NewDatabaseError(err.Error())
+		}
+
+		var count int64
+		countQuery := fmt.Sprintf(`select 
 									count(*)
 								from transfers as tr
 								inner join accounts as oa
@@ -289,55 +315,63 @@ func (r *postgresDB) GetTransfers(id uint64, params transfer.ListTransferQuery) 
 									or 
 									tr.account_destination_id = %d;`, id, id)
 
-	if err := conn.QueryRow(context.Background(), countQuery).Scan(&count); err != nil {
-		return transferResponse, apperrors.NewDatabaseError(err.Error())
+		if err := conn.QueryRow(ctx, countQuery).Scan(&count); err != nil {
+			return transferResponse, apperrors.NewDatabaseError(err.Error())
+		}
+
+		transferResponse.Data = accounts
+		transferResponse.Total = count
+		transferResponse.Page = int64(params.Page + 1)
+
+		return transferResponse, nil
+	case <-ctx.Done():
+		return transferResponse, ctx.Err()
 	}
-
-	transferResponse.Data = accounts
-	transferResponse.Total = count
-	transferResponse.Page = int64(params.Page + 1)
-
-	return transferResponse, nil
 }
 
-func (r *postgresDB) AddTransfer(t transfer.TransferRequest) error {
-	conn, err := r.getConn()
+func (r *postgresDB) AddTransfer(ctx context.Context, t transfer.TransferRequest) error {
+	select {
+	default:
+		conn, err := r.getConn()
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+
+		defer conn.Release()
+
+		tx, err := conn.Begin(ctx)
+
+		if err != nil {
+			return apperrors.NewDatabaseError(err.Error())
+		}
+
+		defer tx.Rollback(ctx)
+
+		insertTransferQuery := fmt.Sprintf("insert into transfers (account_origin_id, account_destination_id, amount) values ('%d', '%d', %d)", t.Origin, *t.Destination, *t.Amount)
+		originBalanceQuery := fmt.Sprintf("update accounts set balance = balance - %d where id = %d", *t.Amount, t.Origin)
+		destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", *t.Amount, *t.Destination)
+
+		if _, err = tx.Exec(ctx, insertTransferQuery); err != nil {
+			return apperrors.NewDatabaseError(err.Error())
+		}
+
+		if _, err = tx.Exec(ctx, originBalanceQuery); err != nil {
+			return apperrors.NewDatabaseError(err.Error())
+		}
+
+		if _, err = tx.Exec(ctx, destinationBalanceQuery); err != nil {
+			return apperrors.NewDatabaseError(err.Error())
+		}
+
+		err = tx.Commit(ctx)
+
+		if err != nil {
+			return apperrors.NewDatabaseError(err.Error())
+		}
+
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-
-	defer conn.Release()
-
-	tx, err := conn.Begin(context.Background())
-
-	if err != nil {
-		return apperrors.NewDatabaseError(err.Error())
-	}
-
-	defer tx.Rollback(context.Background())
-
-	insertTransferQuery := fmt.Sprintf("insert into transfers (account_origin_id, account_destination_id, amount) values ('%d', '%d', %d)", t.Origin, *t.Destination, *t.Amount)
-	originBalanceQuery := fmt.Sprintf("update accounts set balance = balance - %d where id = %d", *t.Amount, t.Origin)
-	destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", *t.Amount, *t.Destination)
-
-	if _, err = tx.Exec(context.Background(), insertTransferQuery); err != nil {
-		return apperrors.NewDatabaseError(err.Error())
-	}
-
-	if _, err = tx.Exec(context.Background(), originBalanceQuery); err != nil {
-		return apperrors.NewDatabaseError(err.Error())
-	}
-
-	if _, err = tx.Exec(context.Background(), destinationBalanceQuery); err != nil {
-		return apperrors.NewDatabaseError(err.Error())
-	}
-
-	err = tx.Commit(context.Background())
-
-	if err != nil {
-		return apperrors.NewDatabaseError(err.Error())
-	}
-
-	return nil
 }
