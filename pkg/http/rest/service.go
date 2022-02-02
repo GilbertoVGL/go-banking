@@ -90,7 +90,20 @@ func doTransfer(s transfer.Service) http.HandlerFunc {
 			return
 		}
 
-		if err := s.DoTransfer(newTransfer); err != nil {
+		transferCh := make(chan bool)
+		errCh := make(chan error)
+
+		go func() {
+			if err := s.DoTransfer(newTransfer); err != nil {
+				errCh <- err
+				return
+			}
+
+			transferCh <- true
+		}()
+
+		select {
+		case err := <-errCh:
 			switch err.(type) {
 			case *apperrors.ArgumentError:
 				respondWithError(w, http.StatusBadRequest, err)
@@ -100,9 +113,11 @@ func doTransfer(s transfer.Service) http.HandlerFunc {
 				respondWithError(w, http.StatusInternalServerError, err)
 			}
 			return
+		case <-transferCh:
+			respondWithJSON(w, http.StatusCreated, newTransfer)
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
 		}
-
-		respondWithJSON(w, http.StatusCreated, newTransfer)
 	}
 }
 
@@ -138,14 +153,27 @@ func getTransfer(s transfer.Service) http.HandlerFunc {
 			return
 		}
 
-		listTransfer, err := s.GetTransfers(id, query)
+		listTransferCh := make(chan transfer.ListTransferReponse)
+		errCh := make(chan error)
 
-		if err != nil {
+		go func() {
+			listTransfer, err := s.GetTransfers(id, query)
+
+			if err != nil {
+				errCh <- err
+				return
+			}
+			listTransferCh <- listTransfer
+		}()
+
+		select {
+		case listTransfer := <-listTransferCh:
+			respondWithJSON(w, http.StatusOK, listTransfer)
+		case err := <-errCh:
 			respondWithError(w, http.StatusInternalServerError, err)
-			return
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
 		}
-
-		respondWithJSON(w, http.StatusOK, listTransfer)
 	}
 }
 
@@ -158,12 +186,26 @@ func newAccount(s account.Service) http.HandlerFunc {
 			return
 		}
 
-		if err := s.NewAccount(newAccount); err != nil {
+		newAccountCh := make(chan bool)
+		errCh := make(chan error)
+
+		go func() {
+			if err := s.NewAccount(newAccount); err != nil {
+				errCh <- err
+				return
+			}
+			newAccountCh <- true
+		}()
+
+		select {
+		case <-newAccountCh:
+			respondWithJSON(w, http.StatusCreated, map[string]string{"msg": "account created"})
+		case err := <-errCh:
 			respondWithError(w, http.StatusBadRequest, err)
-			return
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
 		}
 
-		respondWithJSON(w, http.StatusCreated, map[string]string{"msg": "account created"})
 	}
 }
 
@@ -198,14 +240,26 @@ func listAccounts(s account.Service) http.HandlerFunc {
 			return
 		}
 
-		listAccounts, err := s.List(query)
+		accountListCh := make(chan account.ListAccountsReponse)
+		errCh := make(chan error)
 
-		if err != nil {
-			respondWithError(w, http.StatusInternalServerError, err)
-			return
+		go func() {
+			listAccounts, err := s.List(query)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			accountListCh <- listAccounts
+		}()
+
+		select {
+		case listAccounts := <-accountListCh:
+			respondWithJSON(w, http.StatusOK, listAccounts)
+		case err := <-errCh:
+			respondWithError(w, http.StatusBadRequest, err)
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
 		}
-
-		respondWithJSON(w, http.StatusOK, listAccounts)
 	}
 }
 
@@ -219,28 +273,53 @@ func getBalance(s account.Service) http.HandlerFunc {
 			return
 		}
 
-		balance, err := s.GetBalance(uint64(userId))
+		balanceCh := make(chan account.BalanceResponse)
+		errCh := make(chan error)
 
-		if err != nil {
+		go func() {
+			balance, err := s.GetBalance(uint64(userId))
+			if err != nil {
+				errCh <- err
+				return
+			}
+			balanceCh <- balance
+		}()
+
+		select {
+		case balance := <-balanceCh:
+			respondWithJSON(w, http.StatusOK, balance)
+		case err := <-errCh:
 			respondWithError(w, http.StatusInternalServerError, err)
-			return
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
 		}
-
-		respondWithJSON(w, http.StatusOK, balance)
 	}
 }
 
 func getSelfBalance(s account.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId := r.Context().Value(middleware.UserIdContextKey("userId")).(uint64)
-		balance, err := s.GetBalance(userId)
 
-		if err != nil {
+		balanceCh := make(chan account.BalanceResponse)
+		errCh := make(chan error)
+
+		go func() {
+			balance, err := s.GetBalance(userId)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			balanceCh <- balance
+		}()
+
+		select {
+		case balance := <-balanceCh:
+			respondWithJSON(w, http.StatusOK, balance)
+		case err := <-errCh:
 			respondWithError(w, http.StatusInternalServerError, err)
-			return
+		case <-r.Context().Done():
+			respondWithError(w, http.StatusRequestTimeout, apperrors.NewInternalServerError("request timeout"))
 		}
-
-		respondWithJSON(w, http.StatusOK, balance)
 	}
 }
 
