@@ -3,7 +3,7 @@ package transfer
 import "time"
 
 type TransferRequest struct {
-	Origin      uint64
+	Origin      uint64  `json:"origin"`
 	Destination *uint64 `json:"destination"`
 	Amount      *int64  `json:"amount"`
 }
