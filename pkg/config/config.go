@@ -29,11 +29,13 @@ var requiredEnvs []string = []string{
 	"ORIGIN_ALLOWED",
 }
 
-var ServerWriteTimeout time.Duration
-var ServerReadTimeout time.Duration
-var ServerIdleTimeout time.Duration
-var ServerReadHeaderTimeout time.Duration
-var RequestTimeout time.Duration
+var (
+	ServerWriteTimeout      time.Duration
+	ServerReadTimeout       time.Duration
+	ServerIdleTimeout       time.Duration
+	ServerReadHeaderTimeout time.Duration
+	RequestTimeout          time.Duration
+)
 
 func Load(path string) error {
 	realPath := filepath.FromSlash(path)

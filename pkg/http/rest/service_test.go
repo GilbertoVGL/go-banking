@@ -20,11 +20,13 @@ import (
 
 type mockRepository struct{}
 
-var mockListAccount func(context.Context, account.ListAccountQuery) (account.ListAccountsReponse, error)
-var mockAddAccount func(context.Context, account.NewAccountRequest) error
-var mockLogin func(context.Context, login.LoginRequest) (login.Account, error)
-var mockGetAccountBalance func(context.Context, uint64) (account.BalanceResponse, error)
-var mockGetTransfer func(context.Context, uint64, transfer.ListTransferQuery) (transfer.ListTransferResponse, error)
+var (
+	mockListAccount       func(context.Context, account.ListAccountQuery) (account.ListAccountsReponse, error)
+	mockAddAccount        func(context.Context, account.NewAccountRequest) error
+	mockLogin             func(context.Context, login.LoginRequest) (login.Account, error)
+	mockGetAccountBalance func(context.Context, uint64) (account.BalanceResponse, error)
+	mockGetTransfer       func(context.Context, uint64, transfer.ListTransferQuery) (transfer.ListTransferResponse, error)
+)
 
 func (mr *mockRepository) ListAccount(ctx context.Context, params account.ListAccountQuery) (account.ListAccountsReponse, error) {
 	return mockListAccount(ctx, params)

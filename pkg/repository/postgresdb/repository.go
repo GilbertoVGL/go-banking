@@ -116,6 +116,7 @@ func (r *postgresDB) GetAccountById(ctx context.Context, id uint64) (account.Acc
 
 func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.LoginRequest) (login.Account, error) {
 	var account login.Account
+
 	select {
 	default:
 		conn, err := r.getConn()
