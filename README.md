@@ -25,12 +25,22 @@ Deixei um .env já preenchido com os valores só para facilitar a execução do 
 - `GET /accounts/{account_id}/balance` - obtém o saldo da conta
 - `GET /accounts/balance` - obtém o saldo da conta do usuário logado no momento
 - `POST /accounts` - cria uma conta
+  - body: `{
+	    "name": "Roberval Neto",
+      "cpf": "050.930.920-88",
+	    "secret": "senha_segura",
+	    "balance": 40
+    }`
 
 * * *
 
 ##### `/login`
 
 - `POST /login` - autentica a usuaria
+  - body: `{
+	    "cpf": "610.781.580-53",
+	    "secret": "lonedruid"
+    }`
 
 * * * 
 
@@ -38,6 +48,10 @@ Deixei um .env já preenchido com os valores só para facilitar a execução do 
 
 - `GET /transfers` - obtém a lista de transferencias da usuaria autenticada.
 - `POST /transfers` - faz transferencia de uma conta para outra.
+  - body:`{
+	    "destination": 4,
+      "amount": 1
+    }`
 
 * * *
 
