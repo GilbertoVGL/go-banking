@@ -70,7 +70,7 @@ func (s *service) DoTransfer(ctx context.Context, t TransferRequest) error {
 			errCh <- apperrors.NewArgumentError(strings.Join(invalid, ", "))
 		}
 
-		if *t.Amount < 0 {
+		if *t.Amount < 1 {
 			invalid = append(invalid, "amount")
 			errCh <- apperrors.NewArgumentError(strings.Join(invalid, ", "))
 			return
