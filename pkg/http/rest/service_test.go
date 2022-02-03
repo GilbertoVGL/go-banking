@@ -183,7 +183,7 @@ func TestGetTransfer(t *testing.T) {
 	r := &mockRepository{}
 	s := mockService{r}
 
-	t.Run("getTransfer is OK", func(t *testing.T) {
+	t.Run("listTransfer is OK", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, path.String(), nil)
 		if err != nil {
 			t.Fatal(err)
@@ -199,7 +199,7 @@ func TestGetTransfer(t *testing.T) {
 		}
 
 		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(getTransfer(&s))
+		handler := http.HandlerFunc(listTransfer(&s))
 		ctx := req.Context()
 		ctx = context.WithValue(ctx, middleware.UserIdContextKey("userId"), uint64(1))
 		ro := req.Clone(ctx)
