@@ -39,7 +39,7 @@ Deixei um .env já preenchido com os valores só para facilitar a execução do 
 - `POST /login` - autentica a usuaria
   - body: `{
 	    "cpf": "610.781.580-53",
-	    "secret": "lonedruid"
+	    "secret": "senha_segura"
     }`
 
 * * * 
