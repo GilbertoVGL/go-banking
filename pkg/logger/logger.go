@@ -17,10 +17,10 @@ var Log logger
 
 func New(writer io.Writer) {
 	Log = logger{}
-	Log.infoLogger = log.New(writer, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Log.warningLogger = log.New(writer, "WARNING: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Log.errorLogger = log.New(writer, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-	Log.debugLogger = log.New(writer, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+	Log.infoLogger = log.New(writer, "INFO: ", log.Ldate|log.Ltime)
+	Log.warningLogger = log.New(writer, "WARNING: ", log.Ldate|log.Ltime)
+	Log.errorLogger = log.New(writer, "ERROR: ", log.Ldate|log.Ltime)
+	Log.debugLogger = log.New(writer, "DEBUG: ", log.Ldate|log.Ltime)
 }
 
 func (l *logger) Info(msg ...interface{}) {
