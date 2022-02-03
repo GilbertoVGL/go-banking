@@ -2,12 +2,12 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
 	"github.com/GilbertoVGL/go-banking/pkg/config"
 	"github.com/GilbertoVGL/go-banking/pkg/http/rest"
+	"github.com/GilbertoVGL/go-banking/pkg/logger"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/repository/postgresdb"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
@@ -16,7 +16,7 @@ import (
 func New(port int) (*http.Server, error) {
 	db, err := postgresdb.New()
 	if err != nil {
-		log.Print("warning: unable to connect to database at startup: ", err)
+		logger.Log.Warn("Unable to connect to database at startup:", err)
 	}
 
 	l := login.New(db)
