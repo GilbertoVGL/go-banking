@@ -125,7 +125,7 @@ func doTransfer(s transfer.Service) http.HandlerFunc {
 			return
 		}
 
-		logger.Log.Debug("Trying to do transfer from", newTransfer.Origin, "to", newTransfer.Destination, "of value", newTransfer.Amount)
+		logger.Log.Debug("Trying to do transfer from", newTransfer.Origin, "to", *newTransfer.Destination, "of value", *newTransfer.Amount)
 
 		transferCh := make(chan bool)
 		errCh := make(chan error)
