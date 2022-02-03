@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/GilbertoVGL/go-banking/pkg/account"
 	"github.com/GilbertoVGL/go-banking/pkg/apperrors"
+	"github.com/GilbertoVGL/go-banking/pkg/logger"
 	"github.com/GilbertoVGL/go-banking/pkg/login"
 	"github.com/GilbertoVGL/go-banking/pkg/transfer"
 )
@@ -34,12 +34,14 @@ func new() (*pgxpool.Pool, error) {
 	config, err := pgxpool.ParseConfig(dsn.String())
 
 	if err != nil {
+		logger.Log.Error("Database config error", err)
 		return nil, err
 	}
 
 	pool, err := strconv.Atoi(os.Getenv("DB_MAX_POOL"))
 
 	if err != nil {
+		logger.Log.Error("Database env DB_MAX_POOL parse error", err)
 		return nil, err
 	}
 
@@ -48,6 +50,7 @@ func new() (*pgxpool.Pool, error) {
 	db, err := pgxpool.ConnectConfig(context.Background(), config)
 
 	if err != nil {
+		logger.Log.Error("Database pool creation error", err)
 		return nil, err
 	}
 
@@ -58,7 +61,6 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 	if r == nil || r.db == nil {
 		db, err := new()
 		if err != nil {
-			log.Print("warning: unable to initialize db:", err)
 			return nil, apperrors.NewDatabaseError("unable to initialize db", err.Error())
 		}
 		r = &postgresDB{db}
@@ -67,6 +69,7 @@ func (r *postgresDB) getConn() (*pgxpool.Conn, error) {
 	conn, err := r.db.Acquire(context.Background())
 
 	if err != nil {
+		logger.Log.Error("Unable to get database:", err)
 		return conn, apperrors.NewDatabaseError("unable to get database", err.Error())
 	}
 
@@ -100,8 +103,11 @@ func (r *postgresDB) GetAccountById(ctx context.Context, id uint64) (account.Acc
 		defer conn.Release()
 
 		query := fmt.Sprintf("select id, name, cpf, balance, active from accounts where id = '%d';", id)
+		logger.Log.Debug("Accounts query:", query)
 
 		if err := conn.QueryRow(ctx, query).Scan(&account.Id, &account.Name, &account.Cpf, &account.Balance, &account.Active); err != nil {
+			logger.Log.Error("Accounts query error:", err)
+
 			if errors.Is(pgx.ErrNoRows, err) {
 				return account, apperrors.NewAccountNotFoundError("account not found")
 			}
@@ -127,8 +133,11 @@ func (r *postgresDB) GetAccountBySecretAndCPF(ctx context.Context, l login.Login
 
 		defer conn.Release()
 		query := fmt.Sprintf("select id, active from accounts where cpf = '%s' AND secret = '%s';", l.Cpf, l.Secret)
+		logger.Log.Debug("Account by secret query:", query)
 
 		if err := conn.QueryRow(ctx, query).Scan(&account.Id, &account.Active); err != nil {
+			logger.Log.Error("Account by secret query error:", err)
+
 			if errors.Is(pgx.ErrNoRows, err) {
 				return account, apperrors.NewDatabaseError("invalid cpf or password")
 			}
@@ -165,9 +174,11 @@ func (r *postgresDB) ListAccount(ctx context.Context, params account.ListAccount
 							order by id 
 							limit %d 
 							offset %d;`, params.PageSize, (params.PageSize * params.Page))
+		logger.Log.Debug("List account query:", query)
 		rows, err := conn.Query(ctx, query)
 
 		if err != nil && !errors.Is(pgx.ErrNoRows, err) {
+			logger.Log.Error("List account query error:", err)
 			return accountsResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
@@ -185,8 +196,10 @@ func (r *postgresDB) ListAccount(ctx context.Context, params account.ListAccount
 
 		var count int64
 		countQuery := fmt.Sprintf("select count(*) from accounts;")
+		logger.Log.Debug("List account count query:", query)
 
 		if err := conn.QueryRow(ctx, countQuery).Scan(&count); err != nil {
+			logger.Log.Error("List account count query error:", err)
 			return accountsResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
@@ -212,9 +225,11 @@ func (r *postgresDB) AddAccount(ctx context.Context, a account.NewAccountRequest
 		defer conn.Release()
 
 		query := fmt.Sprintf("insert into accounts (name, cpf, balance, secret) values ('%s', '%s', %d, '%s')", a.Name, a.Cpf, a.Balance, a.Secret)
+		logger.Log.Debug("Add account query:", query)
 		_, err = conn.Exec(ctx, query)
 
 		if err != nil {
+			logger.Log.Error("Add account query error:", err)
 			return apperrors.NewDatabaseError(err.Error())
 		}
 
@@ -238,7 +253,10 @@ func (r *postgresDB) GetAccountBalance(ctx context.Context, id uint64) (int64, e
 		defer conn.Release()
 
 		query := fmt.Sprintf("select balance from accounts where id = %d", id)
+		logger.Log.Debug("Get account balance query:", query)
+
 		if err := conn.QueryRow(ctx, query).Scan(&balance); err != nil {
+			logger.Log.Error("Get account balance query error:", err)
 			return balance, apperrors.NewDatabaseError(err.Error())
 		}
 
@@ -280,9 +298,11 @@ func (r *postgresDB) GetTransfers(ctx context.Context, id uint64, params transfe
 						order by tr.id 
 						limit %d 
 						offset %d;`, id, id, params.PageSize, (params.PageSize * params.Page))
+		logger.Log.Debug("Get transfer query:", query)
 		rows, err := conn.Query(ctx, query)
 
 		if err != nil && !errors.Is(pgx.ErrNoRows, err) {
+			logger.Log.Error("Get transfer query error:", err)
 			return transferResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
@@ -315,8 +335,10 @@ func (r *postgresDB) GetTransfers(ctx context.Context, id uint64, params transfe
 									tr.account_origin_id = %d 
 									or 
 									tr.account_destination_id = %d;`, id, id)
+		logger.Log.Debug("Get transfer count query:", query)
 
 		if err := conn.QueryRow(ctx, countQuery).Scan(&count); err != nil {
+			logger.Log.Error("Get transfer count query error:", err)
 			return transferResponse, apperrors.NewDatabaseError(err.Error())
 		}
 
@@ -352,22 +374,29 @@ func (r *postgresDB) AddTransfer(ctx context.Context, t transfer.TransferRequest
 		insertTransferQuery := fmt.Sprintf("insert into transfers (account_origin_id, account_destination_id, amount) values ('%d', '%d', %d)", t.Origin, *t.Destination, *t.Amount)
 		originBalanceQuery := fmt.Sprintf("update accounts set balance = balance - %d where id = %d", *t.Amount, t.Origin)
 		destinationBalanceQuery := fmt.Sprintf("update accounts set balance = balance + %d where id = %d", *t.Amount, *t.Destination)
+		logger.Log.Debug("Add transfer insert transfer query:", insertTransferQuery)
+		logger.Log.Debug("Add transfer origin balance query:", originBalanceQuery)
+		logger.Log.Debug("Add transfer destination balance query:", destinationBalanceQuery)
 
 		if _, err = tx.Exec(ctx, insertTransferQuery); err != nil {
+			logger.Log.Error("Add transfer insert transfer query error:", err)
 			return apperrors.NewDatabaseError(err.Error())
 		}
 
 		if _, err = tx.Exec(ctx, originBalanceQuery); err != nil {
+			logger.Log.Error("Add transfer origin balance query error:", err)
 			return apperrors.NewDatabaseError(err.Error())
 		}
 
 		if _, err = tx.Exec(ctx, destinationBalanceQuery); err != nil {
+			logger.Log.Error("Add transfer destination balance query error:", err)
 			return apperrors.NewDatabaseError(err.Error())
 		}
 
 		err = tx.Commit(ctx)
 
 		if err != nil {
+			logger.Log.Error("Add transfer database transaction commit error:", err)
 			return apperrors.NewDatabaseError(err.Error())
 		}
 
