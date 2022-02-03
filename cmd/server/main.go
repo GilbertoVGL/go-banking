@@ -1,32 +1,34 @@
 package main
 
 import (
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/GilbertoVGL/go-banking/pkg/config"
+	"github.com/GilbertoVGL/go-banking/pkg/logger"
 	"github.com/GilbertoVGL/go-banking/pkg/server"
 )
 
 func main() {
-	log.Println("Started Banking API")
+	logger.New(os.Stdout)
+	logger.Log.Info("Started Banking API")
 
 	if err := config.Load(".env"); err != nil {
-		log.Fatal(err)
+		logger.Log.Fatal(err)
 	}
 
 	port, err := strconv.Atoi(os.Getenv("APP_PORT"))
+	logger.Log.Debug("APP Port:", port)
 
 	if err != nil {
-		log.Fatalln(err)
+		logger.Log.Fatal(err)
 	}
 
 	s, err := server.New(port)
 
 	if err != nil {
-		log.Fatalln(err)
+		logger.Log.Fatal(err)
 	}
 
-	log.Fatal(s.ListenAndServe())
+	logger.Log.Fatal(s.ListenAndServe())
 }
